@@ -19,22 +19,49 @@ const allowedOrigins = ALLOWED_EXTENSION_ORIGIN
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-app.use(express.json({ limit: "25mb" }));
+function getAllowedOrigin(origin) {
+  if (allowedOrigins.includes("*")) return "*";
+  if (!origin) return "*";
+  if (origin.startsWith("chrome-extension://")) return origin;
+  if (allowedOrigins.includes(origin)) return origin;
+  return "";
+}
+
+app.use((req, res, next) => {
+  const allowedOrigin = getAllowedOrigin(req.headers.origin);
+
+  if (allowedOrigin) {
+    res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+    res.setHeader("Vary", "Origin");
+  }
+
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Max-Age", "86400");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+
+  next();
+});
 
 app.use(cors({
   origin(origin, callback) {
-    const isAllowedChromeExtension = origin?.startsWith("chrome-extension://");
-    const isAllowedOrigin = allowedOrigins.includes("*") || allowedOrigins.includes(origin);
-
-    if (!origin || isAllowedOrigin || isAllowedChromeExtension) {
-      callback(null, true);
+    const allowedOrigin = getAllowedOrigin(origin);
+    if (allowedOrigin) {
+      callback(null, allowedOrigin);
       return;
     }
 
     callback(new Error("Origen no autorizado por CORS."));
-  }
+  },
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
-app.options("*", cors());
+
+app.use(express.json({ limit: "25mb" }));
 
 function validateDraftPayload(body) {
   if (!body?.instruction || typeof body.instruction !== "string") {
