@@ -3,7 +3,7 @@ import { config } from "dotenv";
 import express from "express";
 import cors from "cors";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const backendDir = dirname(fileURLToPath(import.meta.url));
 config({ path: join(backendDir, ".env"), override: true });
@@ -383,6 +383,12 @@ app.post("/api/draft", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Expediente AI backend activo en http://localhost:${PORT}`);
-});
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isDirectRun) {
+  app.listen(PORT, () => {
+    console.log(`Expediente AI backend activo en http://localhost:${PORT}`);
+  });
+}
+
+export default app;
