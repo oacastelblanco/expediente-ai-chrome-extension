@@ -2,10 +2,11 @@
   "name": "expediente-ai-chrome-extension",
   "version": "0.1.0",
   "type": "module",
+  "main": "server.js",
   "private": true,
   "scripts": {
-    "dev": "node backend/server.js",
-    "start": "node backend/server.js"
+    "dev": "node server.js",
+    "start": "node server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
