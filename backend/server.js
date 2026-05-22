@@ -195,6 +195,8 @@ function getAdminStatus() {
       openaiConfigured: Boolean(OPENAI_API_KEY && OPENAI_API_KEY !== "pega_aqui_tu_api_key"),
       openaiModel: adminConfig.openaiModel,
       supabaseConfigured: isSupabaseConfigured(),
+      adminPasswordConfigured: Boolean(ADMIN_PASSWORD),
+      adminSessionSecretConfigured: Boolean(process.env.ADMIN_SESSION_SECRET?.trim()),
       authMode: adminConfig.authMode,
       authRequiredNow: shouldRequireAuth(),
       allowedExtensionOrigin: ALLOWED_EXTENSION_ORIGIN
@@ -476,10 +478,21 @@ app.get("/admin/admin.js", (_req, res) => {
   res.type("js").send(adminAssets.js);
 });
 
+app.get("/admin/api/setup", (_req, res) => {
+  res.json({
+    ok: true,
+    adminPasswordConfigured: Boolean(ADMIN_PASSWORD),
+    adminSessionSecretConfigured: Boolean(process.env.ADMIN_SESSION_SECRET?.trim()),
+    supabaseConfigured: isSupabaseConfigured(),
+    authMode: adminConfig.authMode,
+    openaiConfigured: Boolean(OPENAI_API_KEY && OPENAI_API_KEY !== "pega_aqui_tu_api_key")
+  });
+});
+
 app.post("/admin/api/login", (req, res) => {
   if (!ADMIN_PASSWORD) {
-    res.status(500).json({
-      error: "Falta configurar ADMIN_PASSWORD en las variables de entorno del backend."
+    res.status(503).json({
+      error: "Falta configurar ADMIN_PASSWORD en Vercel Environment Variables para Production y hacer redeploy."
     });
     return;
   }
