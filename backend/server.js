@@ -279,11 +279,14 @@ async function extractPdfText(buffer) {
   };
 }
 
-app.get("/health", (_req, res) => {
+function handleHealth(_req, res) {
   res.json({ ok: true, service: "expediente-ai-backend" });
-});
+}
 
-app.post("/api/pdf-text", async (req, res) => {
+app.get("/health", handleHealth);
+app.get("/api/health", handleHealth);
+
+async function handlePdfText(req, res) {
   try {
     const { pdfBase64, filename } = req.body || {};
 
@@ -325,9 +328,12 @@ app.post("/api/pdf-text", async (req, res) => {
       error: error.message || "No se pudo extraer texto del PDF."
     });
   }
-});
+}
 
-app.post("/api/draft", async (req, res) => {
+app.post("/api/pdf-text", handlePdfText);
+app.post("/pdf-text", handlePdfText);
+
+async function handleDraft(req, res) {
   try {
     validateDraftPayload(req.body);
 
@@ -381,7 +387,10 @@ app.post("/api/draft", async (req, res) => {
       error: error.message || "Solicitud invalida."
     });
   }
-});
+}
+
+app.post("/api/draft", handleDraft);
+app.post("/draft", handleDraft);
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 
