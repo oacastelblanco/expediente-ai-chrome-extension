@@ -248,14 +248,20 @@ function extractCaseMetadata(text) {
 
 async function requestPdfText(pdf) {
   const backendUrl = await getBackendUrl();
-  const response = await fetch(getPdfTextUrl(backendUrl), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      pdfBase64: pdf.base64,
-      filename: pdf.filename
-    })
-  });
+  let response;
+
+  try {
+    response = await fetch(getPdfTextUrl(backendUrl), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pdfBase64: pdf.base64,
+        filename: pdf.filename
+      })
+    });
+  } catch (error) {
+    throw new Error(`No se pudo conectar con /api/pdf-text. Revisa CORS, URL de Vercel o variables de entorno. Detalle: ${error.message}`);
+  }
 
   const data = await response.json().catch(() => ({}));
 
@@ -469,11 +475,17 @@ async function extractFromActivePage() {
 async function requestDraft(payload) {
   const backendUrl = await getBackendUrl();
 
-  const response = await fetch(backendUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
+  let response;
+
+  try {
+    response = await fetch(backendUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  } catch (error) {
+    throw new Error(`No se pudo conectar con el backend. Revisa la URL configurada o CORS en Vercel. Detalle: ${error.message}`);
+  }
 
   const data = await response.json().catch(() => ({}));
 

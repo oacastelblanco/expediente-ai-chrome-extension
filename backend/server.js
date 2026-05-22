@@ -14,12 +14,19 @@ const PORT = Number(process.env.PORT || 3001);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY?.trim();
 const OPENAI_MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-5-mini";
 const ALLOWED_EXTENSION_ORIGIN = process.env.ALLOWED_EXTENSION_ORIGIN || "*";
+const allowedOrigins = ALLOWED_EXTENSION_ORIGIN
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 app.use(express.json({ limit: "25mb" }));
 
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || ALLOWED_EXTENSION_ORIGIN === "*" || origin === ALLOWED_EXTENSION_ORIGIN) {
+    const isAllowedChromeExtension = origin?.startsWith("chrome-extension://");
+    const isAllowedOrigin = allowedOrigins.includes("*") || allowedOrigins.includes(origin);
+
+    if (!origin || isAllowedOrigin || isAllowedChromeExtension) {
       callback(null, true);
       return;
     }
@@ -27,6 +34,7 @@ app.use(cors({
     callback(new Error("Origen no autorizado por CORS."));
   }
 }));
+app.options("*", cors());
 
 function validateDraftPayload(body) {
   if (!body?.instruction || typeof body.instruction !== "string") {
