@@ -4,6 +4,146 @@ const CONTENT_SCRIPT_FILE = SERVICE_WORKER_PATH.includes("/chrome-extension/")
   ? "chrome-extension/contentScript.js"
   : "contentScript.js";
 
+function normalizeSupabaseUrl(url) {
+  return String(url || "").trim().replace(/\/+$/, "");
+}
+
+async function getSupabaseConfig() {
+  const stored = await chrome.storage.sync.get(["supabaseUrl", "supabaseAnonKey"]);
+  return {
+    url: normalizeSupabaseUrl(stored.supabaseUrl),
+    anonKey: String(stored.supabaseAnonKey || "").trim()
+  };
+}
+
+function assertSupabaseConfig(config) {
+  if (!config.url || !config.anonKey) {
+    throw new Error("Configura Supabase URL y anon key.");
+  }
+}
+
+function profileToSupabase(profile = {}) {
+  return {
+    prefijo: profile.lawyerPrefix || "Ab.",
+    nombre_completo: profile.lawyerName || "",
+    matricula_abogado: profile.lawyerBarNumber || "",
+    correo_notificaciones: profile.lawyerEmail || "",
+    casillero_judicial: profile.lawyerJudicialBox || ""
+  };
+}
+
+function profileFromSupabase(profile = {}) {
+  return {
+    lawyerPrefix: profile.prefijo || "Ab.",
+    lawyerName: profile.nombre_completo || "",
+    lawyerBarNumber: profile.matricula_abogado || "",
+    lawyerEmail: profile.correo_notificaciones || "",
+    lawyerJudicialBox: profile.casillero_judicial || ""
+  };
+}
+
+async function supabaseFetch(path, options = {}) {
+  const config = await getSupabaseConfig();
+  assertSupabaseConfig(config);
+
+  const session = options.useSession === false
+    ? null
+    : (await chrome.storage.local.get(["supabaseSession"])).supabaseSession;
+  const headers = {
+    apikey: config.anonKey,
+    "Content-Type": "application/json",
+    ...(options.headers || {})
+  };
+
+  if (session?.access_token) {
+    headers.Authorization = `Bearer ${session.access_token}`;
+  }
+
+  const response = await fetch(`${config.url}${path}`, {
+    ...options,
+    headers
+  });
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.msg || data?.message || data?.error_description || data?.error || `Error Supabase: ${response.status}`);
+  }
+
+  return data;
+}
+
+async function saveSupabaseSession(session) {
+  if (!session?.access_token) return;
+  await chrome.storage.local.set({ supabaseSession: session });
+}
+
+async function getBackendAuthHeaders() {
+  const stored = await chrome.storage.local.get(["supabaseSession"]);
+  const token = stored.supabaseSession?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function loadSupabaseProfile(userId) {
+  const rows = await supabaseFetch(`/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=*`, {
+    method: "GET",
+    headers: { Accept: "application/json" }
+  });
+  const profile = Array.isArray(rows) ? rows[0] : null;
+  if (!profile) return null;
+
+  const normalized = profileFromSupabase(profile);
+  await chrome.storage.sync.set({ profile: normalized });
+  return normalized;
+}
+
+async function updateSupabaseProfile(profile) {
+  const stored = await chrome.storage.local.get(["supabaseSession"]);
+  const userId = stored.supabaseSession?.user?.id;
+  if (!userId) throw new Error("Inicia sesion nuevamente para guardar el perfil.");
+
+  const rows = await supabaseFetch(`/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=*`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(profileToSupabase(profile))
+  });
+  const normalized = profileFromSupabase(Array.isArray(rows) ? rows[0] : {});
+  await chrome.storage.sync.set({ profile: normalized });
+  return normalized;
+}
+
+async function supabaseLogin(email, password) {
+  const data = await supabaseFetch("/auth/v1/token?grant_type=password", {
+    method: "POST",
+    useSession: false,
+    body: JSON.stringify({ email, password })
+  });
+
+  await saveSupabaseSession(data);
+  if (data.user?.id) await loadSupabaseProfile(data.user.id);
+  return data;
+}
+
+async function supabaseRegister(email, password, profile) {
+  const data = await supabaseFetch("/auth/v1/signup", {
+    method: "POST",
+    useSession: false,
+    body: JSON.stringify({
+      email,
+      password,
+      data: profileToSupabase(profile)
+    })
+  });
+
+  const session = data.session || (data.access_token ? data : null);
+  if (session) {
+    await saveSupabaseSession(session);
+    if (data.user?.id) await loadSupabaseProfile(data.user.id);
+  }
+
+  await chrome.storage.sync.set({ profile });
+  return data;
+}
+
 function installPdfDownloadInterceptor() {
   if (window.__expedienteAiPdfInterceptorInstalled) return;
   window.__expedienteAiPdfInterceptorInstalled = true;
@@ -258,9 +398,10 @@ async function requestPdfText(pdf) {
   let response;
 
   try {
+    const authHeaders = await getBackendAuthHeaders();
     response = await fetch(getPdfTextUrl(backendUrl), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders },
       body: JSON.stringify({
         pdfBase64: pdf.base64,
         filename: pdf.filename
@@ -485,9 +626,10 @@ async function requestDraft(payload) {
   let response;
 
   try {
+    const authHeaders = await getBackendAuthHeaders();
     response = await fetch(backendUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders },
       body: JSON.stringify(payload)
     });
   } catch (error) {
@@ -518,8 +660,27 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     }
 
     if (request?.type === "SAVE_CONFIG") {
-      await chrome.storage.sync.set({ backendUrl: request.backendUrl });
+      await chrome.storage.sync.set({
+        backendUrl: request.backendUrl,
+        supabaseUrl: normalizeSupabaseUrl(request.supabase?.url),
+        supabaseAnonKey: request.supabase?.anonKey || ""
+      });
       sendResponse({ ok: true });
+      return;
+    }
+
+    if (request?.type === "SAVE_SUPABASE_CONFIG") {
+      await chrome.storage.sync.set({
+        supabaseUrl: normalizeSupabaseUrl(request.config?.url),
+        supabaseAnonKey: request.config?.anonKey || ""
+      });
+      sendResponse({ ok: true });
+      return;
+    }
+
+    if (request?.type === "GET_SUPABASE_CONFIG") {
+      const config = await getSupabaseConfig();
+      sendResponse({ ok: true, config });
       return;
     }
 
@@ -530,6 +691,14 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     }
 
     if (request?.type === "SAVE_PROFILE") {
+      const supabaseConfig = await getSupabaseConfig();
+      const storedSession = await chrome.storage.local.get(["supabaseSession"]);
+      if (supabaseConfig.url && supabaseConfig.anonKey && storedSession.supabaseSession?.access_token) {
+        const profile = await updateSupabaseProfile(request.profile);
+        sendResponse({ ok: true, profile });
+        return;
+      }
+
       await chrome.storage.sync.set({
         profile: {
           lawyerPrefix: request.profile?.lawyerPrefix || "Ab.",
@@ -538,6 +707,27 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
           lawyerEmail: request.profile?.lawyerEmail || "",
           lawyerJudicialBox: request.profile?.lawyerJudicialBox || ""
         }
+      });
+      sendResponse({ ok: true });
+      return;
+    }
+
+    if (request?.type === "SUPABASE_LOGIN") {
+      const data = await supabaseLogin(request.email, request.password);
+      sendResponse({ ok: true, user: data.user });
+      return;
+    }
+
+    if (request?.type === "SUPABASE_REGISTER") {
+      const data = await supabaseRegister(request.email, request.password, request.profile);
+      sendResponse({ ok: true, user: data.user, needsConfirmation: !data.access_token && !data.session?.access_token });
+      return;
+    }
+
+    if (request?.type === "SUPABASE_CHANGE_PASSWORD") {
+      await supabaseFetch("/auth/v1/user", {
+        method: "PUT",
+        body: JSON.stringify({ password: request.password })
       });
       sendResponse({ ok: true });
       return;
@@ -564,10 +754,14 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 
     if (request?.type === "GET_CONFIG") {
       const backendUrl = await getBackendUrl();
-      const stored = await chrome.storage.sync.get(["showCapturedText", "profile"]);
+      const stored = await chrome.storage.sync.get(["showCapturedText", "profile", "supabaseUrl", "supabaseAnonKey"]);
       sendResponse({
         ok: true,
         backendUrl,
+        supabase: {
+          url: normalizeSupabaseUrl(stored.supabaseUrl),
+          anonKey: stored.supabaseAnonKey || ""
+        },
         showCapturedText: stored.showCapturedText !== false,
         profile: stored.profile || {
           lawyerPrefix: "Ab.",

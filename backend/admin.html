@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Expediente AI Admin</title>
+  <link rel="stylesheet" href="/admin/admin.css" />
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <h1>Expediente AI Admin</h1>
+        <p>Configuracion administrativa del backend</p>
+      </div>
+      <span id="statusPill" class="pill">Sin sesion</span>
+    </header>
+
+    <section id="loginCard" class="panel">
+      <h2>Acceso administrador</h2>
+      <label for="adminPassword">Clave de administrador</label>
+      <input id="adminPassword" type="password" autocomplete="current-password" />
+      <button id="loginButton" type="button">Ingresar</button>
+      <p id="loginMessage" class="message"></p>
+    </section>
+
+    <section id="adminCard" class="panel hidden">
+      <div class="section-title">
+        <h2>Estado del backend</h2>
+        <button id="refreshButton" class="secondary" type="button">Actualizar</button>
+      </div>
+
+      <dl class="status-grid">
+        <div>
+          <dt>OpenAI</dt>
+          <dd id="openaiStatus">-</dd>
+        </div>
+        <div>
+          <dt>Supabase</dt>
+          <dd id="supabaseStatus">-</dd>
+        </div>
+        <div>
+          <dt>Autenticacion requerida</dt>
+          <dd id="authRequiredStatus">-</dd>
+        </div>
+        <div>
+          <dt>Origen permitido</dt>
+          <dd id="originStatus">-</dd>
+        </div>
+      </dl>
+
+      <div class="settings">
+        <label for="openaiModel">Modelo OpenAI</label>
+        <input id="openaiModel" type="text" placeholder="gpt-5-mini" />
+
+        <label for="authMode">Modo de autenticacion</label>
+        <select id="authMode">
+          <option value="auto">Auto: requiere Supabase si esta configurado</option>
+          <option value="on">Siempre exigir sesion Supabase</option>
+          <option value="off">Desactivar autenticacion del backend</option>
+        </select>
+
+        <button id="saveButton" type="button">Guardar configuracion runtime</button>
+      </div>
+
+      <p class="hint">
+        En Vercel esta configuracion runtime puede reiniciarse al redeplegar o al cambiar de instancia.
+        Para valores permanentes usa Environment Variables.
+      </p>
+      <p id="adminMessage" class="message"></p>
+    </section>
+  </main>
+
+  <script src="/admin/admin.js"></script>
+</body>
+</html>

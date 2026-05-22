@@ -16,7 +16,11 @@ const registerLawyerBarNumber = $("registerLawyerBarNumber");
 const registerLawyerEmail = $("registerLawyerEmail");
 const registerLawyerJudicialBox = $("registerLawyerJudicialBox");
 const registerMessage = $("registerMessage");
+const loginSupabaseUrl = $("loginSupabaseUrl");
+const loginSupabaseAnonKey = $("loginSupabaseAnonKey");
 const backendUrl = $("backendUrl");
+const supabaseUrl = $("supabaseUrl");
+const supabaseAnonKey = $("supabaseAnonKey");
 const documentType = $("documentType");
 const instruction = $("instruction");
 const capturedText = $("capturedText");
@@ -96,6 +100,15 @@ async function getStoredAuth() {
   };
 }
 
+async function getSupabaseConfig() {
+  const response = await sendMessage({ type: "GET_SUPABASE_CONFIG" });
+  return response?.ok ? response.config : { url: "", anonKey: "" };
+}
+
+function hasSupabaseConfig(config) {
+  return Boolean(config?.url && config?.anonKey);
+}
+
 async function unlockApp() {
   loginView.classList.add("hidden");
   registerView.classList.add("hidden");
@@ -103,9 +116,46 @@ async function unlockApp() {
   await loadConfig();
 }
 
-async function login() {
-  const storedAuth = await getStoredAuth();
+async function saveSupabaseConfigFromLogin() {
+  const response = await sendMessage({
+    type: "SAVE_SUPABASE_CONFIG",
+    config: {
+      url: loginSupabaseUrl.value.trim(),
+      anonKey: loginSupabaseAnonKey.value.trim()
+    }
+  });
 
+  if (!response?.ok) {
+    setLoginMessage(response?.error || "No se pudo guardar Supabase.");
+    return;
+  }
+
+  setLoginMessage("Supabase configurado.");
+}
+
+async function login() {
+  const supabaseConfig = await getSupabaseConfig();
+
+  if (hasSupabaseConfig(supabaseConfig)) {
+    const response = await sendMessage({
+      type: "SUPABASE_LOGIN",
+      email: loginUsername.value.trim(),
+      password: loginPassword.value
+    });
+
+    if (!response?.ok) {
+      setLoginMessage(response?.error || "Usuario o clave incorrectos.");
+      return;
+    }
+
+    loginUsername.value = "";
+    loginPassword.value = "";
+    setLoginMessage("");
+    await unlockApp();
+    return;
+  }
+
+  const storedAuth = await getStoredAuth();
   if (loginUsername.value.trim() !== storedAuth.username || loginPassword.value !== storedAuth.password) {
     setLoginMessage("Usuario o clave incorrectos.");
     return;
@@ -129,7 +179,7 @@ async function registerAccount() {
   };
 
   if (!username) {
-    setRegisterMessage("Ingresa un usuario.");
+    setRegisterMessage("Ingresa un correo.");
     return;
   }
 
@@ -150,6 +200,36 @@ async function registerAccount() {
 
   if (!profile.lawyerBarNumber) {
     setRegisterMessage("Ingresa el número de matrícula.");
+    return;
+  }
+
+  const supabaseConfig = await getSupabaseConfig();
+  if (hasSupabaseConfig(supabaseConfig)) {
+    const response = await sendMessage({
+      type: "SUPABASE_REGISTER",
+      email: username,
+      password,
+      profile
+    });
+
+    if (!response?.ok) {
+      setRegisterMessage(response?.error || "No se pudo crear la cuenta.");
+      return;
+    }
+
+    registerUsername.value = "";
+    registerPassword.value = "";
+    registerConfirmPassword.value = "";
+    registerLawyerPrefix.value = "Ab.";
+    registerLawyerName.value = "";
+    registerLawyerBarNumber.value = "";
+    registerLawyerEmail.value = "";
+    registerLawyerJudicialBox.value = "";
+    loginUsername.value = username;
+    showLoginView();
+    setLoginMessage(response.needsConfirmation
+      ? "Cuenta creada. Revisa tu correo para confirmar el registro."
+      : "Cuenta creada. Ya puedes ingresar.");
     return;
   }
 
@@ -319,6 +399,10 @@ async function loadConfig() {
   const response = await sendMessage({ type: "GET_CONFIG" });
   if (response?.ok) {
     backendUrl.value = response.backendUrl;
+    supabaseUrl.value = response.supabase?.url || "";
+    supabaseAnonKey.value = response.supabase?.anonKey || "";
+    loginSupabaseUrl.value = response.supabase?.url || "";
+    loginSupabaseAnonKey.value = response.supabase?.anonKey || "";
     showCapturedText.checked = response.showCapturedText !== false;
     applyCapturedTextVisibility(showCapturedText.checked);
     activeProfile = {
@@ -345,7 +429,14 @@ async function saveConfig() {
     return;
   }
 
-  const response = await sendMessage({ type: "SAVE_CONFIG", backendUrl: url });
+  const response = await sendMessage({
+    type: "SAVE_CONFIG",
+    backendUrl: url,
+    supabase: {
+      url: supabaseUrl.value.trim(),
+      anonKey: supabaseAnonKey.value.trim()
+    }
+  });
   if (!response?.ok) {
     setMessage(response?.error || "No se pudo guardar la configuración.", "error");
     return;
@@ -389,6 +480,43 @@ async function saveProfile() {
 }
 
 async function changePassword() {
+  const supabaseConfig = await getSupabaseConfig();
+
+  if (hasSupabaseConfig(supabaseConfig)) {
+    if (currentUsername.value.trim() && newUsername.value.trim() && currentUsername.value.trim() !== newUsername.value.trim()) {
+      setMessage("Para Supabase, el usuario es el correo. Ingresa el mismo correo en ambos campos o deja el nuevo usuario vacio.", "error");
+      return;
+    }
+
+    if (!newPassword.value || newPassword.value.length < 6) {
+      setMessage("La nueva clave debe tener al menos 6 caracteres.", "error");
+      return;
+    }
+
+    if (newPassword.value !== confirmPassword.value) {
+      setMessage("La confirmaciÃ³n de clave no coincide.", "error");
+      return;
+    }
+
+    const response = await sendMessage({
+      type: "SUPABASE_CHANGE_PASSWORD",
+      password: newPassword.value
+    });
+
+    if (!response?.ok) {
+      setMessage(response?.error || "No se pudo cambiar la clave.", "error");
+      return;
+    }
+
+    currentUsername.value = "";
+    currentPassword.value = "";
+    newUsername.value = "";
+    newPassword.value = "";
+    confirmPassword.value = "";
+    setMessage("Clave actualizada en Supabase.", "ok");
+    return;
+  }
+
   const storedAuth = await getStoredAuth();
 
   if (currentUsername.value.trim() !== storedAuth.username || currentPassword.value !== storedAuth.password) {
@@ -837,6 +965,9 @@ function downloadPdf() {
 $("loginButton").addEventListener("click", () => {
   login().catch(() => setLoginMessage("No se pudo iniciar sesión."));
 });
+$("saveLoginSupabase").addEventListener("click", () => {
+  saveSupabaseConfigFromLogin().catch(() => setLoginMessage("No se pudo guardar Supabase."));
+});
 $("showRegister").addEventListener("click", showRegisterView);
 $("backToLogin").addEventListener("click", showLoginView);
 $("registerButton").addEventListener("click", () => {
@@ -871,5 +1002,10 @@ $("copyResult").addEventListener("click", copyResult);
 $("downloadWord").addEventListener("click", downloadWord);
 $("downloadPdf").addEventListener("click", downloadPdf);
 capturedText.addEventListener("input", updateCount);
+
+getSupabaseConfig().then((config) => {
+  loginSupabaseUrl.value = config.url || "";
+  loginSupabaseAnonKey.value = config.anonKey || "";
+}).catch(() => {});
 
 

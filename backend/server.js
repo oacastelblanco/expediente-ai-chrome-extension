@@ -2,22 +2,31 @@ import "dotenv/config";
 import { config } from "dotenv";
 import express from "express";
 import cors from "cors";
+import crypto from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const backendDir = dirname(fileURLToPath(import.meta.url));
-config({ path: join(backendDir, ".env"), override: true });
+config({ path: join(backendDir, ".env"), override: false });
 
 const app = express();
 
 const PORT = Number(process.env.PORT || 3001);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY?.trim();
-const OPENAI_MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-5-mini";
+const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-5-mini";
+const SUPABASE_URL = process.env.SUPABASE_URL?.trim().replace(/\/+$/, "") || "";
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY?.trim() || "";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD?.trim() || "";
+const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET?.trim() || crypto.randomBytes(32).toString("hex");
 const ALLOWED_EXTENSION_ORIGIN = process.env.ALLOWED_EXTENSION_ORIGIN || "*";
 const allowedOrigins = ALLOWED_EXTENSION_ORIGIN
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+const adminConfig = {
+  openaiModel: DEFAULT_OPENAI_MODEL,
+  authMode: process.env.AUTH_MODE?.trim() || "auto"
+};
 
 function getAllowedOrigin(origin) {
   if (allowedOrigins.includes("*")) return "*";
@@ -62,6 +71,129 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: "25mb" }));
+
+function isSupabaseConfigured() {
+  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+}
+
+function shouldRequireAuth() {
+  if (adminConfig.authMode === "on") return true;
+  if (adminConfig.authMode === "off") return false;
+  return isSupabaseConfigured();
+}
+
+function getBearerToken(req) {
+  const authorization = req.headers.authorization || "";
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || "";
+}
+
+async function verifySupabaseUser(req, res, next) {
+  if (!shouldRequireAuth()) {
+    next();
+    return;
+  }
+
+  if (!isSupabaseConfigured()) {
+    res.status(500).json({
+      error: "El backend requiere autenticacion, pero faltan SUPABASE_URL o SUPABASE_ANON_KEY."
+    });
+    return;
+  }
+
+  const token = getBearerToken(req);
+  if (!token) {
+    res.status(401).json({
+      error: "Sesion requerida. Inicia sesion en la extension antes de usar el backend."
+    });
+    return;
+  }
+
+  try {
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`
+      }
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || !data?.id) {
+      res.status(401).json({
+        error: "Sesion invalida o expirada. Vuelve a iniciar sesion."
+      });
+      return;
+    }
+
+    req.user = {
+      id: data.id,
+      email: data.email || ""
+    };
+    next();
+  } catch (_error) {
+    res.status(502).json({
+      error: "No se pudo validar la sesion con Supabase."
+    });
+  }
+}
+
+function signAdminToken(payload) {
+  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = crypto
+    .createHmac("sha256", ADMIN_SESSION_SECRET)
+    .update(encodedPayload)
+    .digest("base64url");
+  return `${encodedPayload}.${signature}`;
+}
+
+function verifyAdminToken(token) {
+  const [encodedPayload, signature] = String(token || "").split(".");
+  if (!encodedPayload || !signature) return null;
+
+  const expected = crypto
+    .createHmac("sha256", ADMIN_SESSION_SECRET)
+    .update(encodedPayload)
+    .digest("base64url");
+
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (signatureBuffer.length !== expectedBuffer.length) return null;
+  if (!crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) return null;
+
+  try {
+    const payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8"));
+    if (!payload.exp || Date.now() > payload.exp) return null;
+    return payload;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function requireAdmin(req, res, next) {
+  const token = getBearerToken(req);
+  const payload = verifyAdminToken(token);
+  if (!payload) {
+    res.status(401).json({ error: "Sesion de administrador requerida." });
+    return;
+  }
+
+  next();
+}
+
+function getAdminStatus() {
+  return {
+    ok: true,
+    service: "expediente-ai-backend",
+    config: {
+      openaiConfigured: Boolean(OPENAI_API_KEY && OPENAI_API_KEY !== "pega_aqui_tu_api_key"),
+      openaiModel: adminConfig.openaiModel,
+      supabaseConfigured: isSupabaseConfigured(),
+      authMode: adminConfig.authMode,
+      authRequiredNow: shouldRequireAuth(),
+      allowedExtensionOrigin: ALLOWED_EXTENSION_ORIGIN
+    }
+  };
+}
 
 function validateDraftPayload(body) {
   if (!body?.instruction || typeof body.instruction !== "string") {
@@ -315,11 +447,72 @@ async function extractPdfText(buffer) {
 }
 
 function handleHealth(_req, res) {
-  res.json({ ok: true, service: "expediente-ai-backend" });
+  res.json({
+    ok: true,
+    service: "expediente-ai-backend",
+    authRequired: shouldRequireAuth()
+  });
 }
 
 app.get("/health", handleHealth);
 app.get("/api/health", handleHealth);
+
+app.get("/admin", (_req, res) => {
+  res.sendFile(join(backendDir, "admin.html"));
+});
+
+app.get("/admin/admin.css", (_req, res) => {
+  res.sendFile(join(backendDir, "admin.css"));
+});
+
+app.get("/admin/admin.js", (_req, res) => {
+  res.sendFile(join(backendDir, "admin.js"));
+});
+
+app.post("/admin/api/login", (req, res) => {
+  if (!ADMIN_PASSWORD) {
+    res.status(500).json({
+      error: "Falta configurar ADMIN_PASSWORD en las variables de entorno del backend."
+    });
+    return;
+  }
+
+  if (req.body?.password !== ADMIN_PASSWORD) {
+    res.status(401).json({ error: "Clave de administrador incorrecta." });
+    return;
+  }
+
+  const token = signAdminToken({
+    role: "admin",
+    exp: Date.now() + 1000 * 60 * 60 * 8
+  });
+
+  res.json({ ok: true, token });
+});
+
+app.get("/admin/api/status", requireAdmin, (_req, res) => {
+  res.json(getAdminStatus());
+});
+
+app.put("/admin/api/config", requireAdmin, (req, res) => {
+  const nextModel = String(req.body?.openaiModel || "").trim();
+  const nextAuthMode = String(req.body?.authMode || "").trim();
+
+  if (!nextModel) {
+    res.status(400).json({ error: "El modelo no puede estar vacio." });
+    return;
+  }
+
+  if (!["auto", "on", "off"].includes(nextAuthMode)) {
+    res.status(400).json({ error: "Modo de autenticacion invalido." });
+    return;
+  }
+
+  adminConfig.openaiModel = nextModel;
+  adminConfig.authMode = nextAuthMode;
+
+  res.json(getAdminStatus());
+});
 
 async function handlePdfText(req, res) {
   try {
@@ -365,8 +558,8 @@ async function handlePdfText(req, res) {
   }
 }
 
-app.post("/api/pdf-text", handlePdfText);
-app.post("/pdf-text", handlePdfText);
+app.post("/api/pdf-text", verifySupabaseUser, handlePdfText);
+app.post("/pdf-text", verifySupabaseUser, handlePdfText);
 
 async function handleDraft(req, res) {
   try {
@@ -388,7 +581,7 @@ async function handleDraft(req, res) {
         "Authorization": `Bearer ${OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: OPENAI_MODEL,
+        model: adminConfig.openaiModel,
         input: [
           {
             role: "system",
@@ -424,8 +617,8 @@ async function handleDraft(req, res) {
   }
 }
 
-app.post("/api/draft", handleDraft);
-app.post("/draft", handleDraft);
+app.post("/api/draft", verifySupabaseUser, handleDraft);
+app.post("/draft", verifySupabaseUser, handleDraft);
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 

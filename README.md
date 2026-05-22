@@ -76,6 +76,64 @@ http://localhost:3001/api/draft
 
 Si cambias la URL, presiona `Guardar configuracion`.
 
+## D.1 Supabase
+
+La extension puede iniciar sesion y registrar usuarios con Supabase Auth.
+
+1. Crea el proyecto en Supabase.
+2. Ejecuta el SQL de la tabla `profiles` y sus policies.
+3. En Supabase copia:
+   - `Project URL`
+   - `anon public key`
+4. Abre la extension.
+5. En la pantalla de login abre `Configurar Supabase`.
+6. Pega `Supabase URL` y `Supabase anon key`.
+7. Presiona `Guardar Supabase`.
+8. Usa `Registrarse` para crear el usuario con nombre, matricula, correo y casillero.
+
+La `anon key` puede estar en la extension. La API key de OpenAI no debe ir nunca en la extension; debe quedar solo en el backend/Vercel.
+
+## D.2 Proteger El Backend Con Supabase
+
+Para que el backend solo acepte llamadas de usuarios autenticados, configura estas variables en `backend/.env` y tambien en Vercel:
+
+```env
+SUPABASE_URL=https://tu-proyecto.supabase.co
+SUPABASE_ANON_KEY=tu_anon_public_key
+AUTH_MODE=auto
+```
+
+Con `AUTH_MODE=auto`, el backend exige sesion cuando `SUPABASE_URL` y `SUPABASE_ANON_KEY` existen. La extension enviara automaticamente el token de Supabase al backend despues de iniciar sesion.
+
+Opciones de `AUTH_MODE`:
+
+- `auto`: exige sesion si Supabase esta configurado.
+- `on`: exige sesion siempre.
+- `off`: no exige sesion.
+
+## D.3 Panel Administrador Del Backend
+
+El backend expone una interfaz administrativa en:
+
+```text
+http://localhost:3001/admin
+```
+
+En Vercel:
+
+```text
+https://tu-proyecto.vercel.app/admin
+```
+
+Configura estas variables antes de usarlo:
+
+```env
+ADMIN_PASSWORD=una_clave_segura
+ADMIN_SESSION_SECRET=un_texto_largo_aleatorio
+```
+
+Desde el panel puedes revisar si OpenAI y Supabase estan configurados, ver si la autenticacion esta activa y ajustar temporalmente el modelo OpenAI o el modo de autenticacion. En Vercel esos ajustes runtime pueden reiniciarse al redeplegar o al cambiar de instancia; para cambios permanentes usa Environment Variables.
+
 ## E. Flujo De Prueba
 
 1. Presiona `Leer expediente`.

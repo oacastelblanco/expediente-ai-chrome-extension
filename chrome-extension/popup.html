@@ -11,8 +11,17 @@
       <h1>Expediente AI</h1>
       <p>Ingresa tu clave para continuar</p>
 
+      <details class="auth-settings">
+        <summary>Configurar Supabase</summary>
+        <label for="loginSupabaseUrl">Supabase URL</label>
+        <input id="loginSupabaseUrl" type="url" placeholder="https://tu-proyecto.supabase.co" />
+        <label for="loginSupabaseAnonKey">Supabase anon key</label>
+        <input id="loginSupabaseAnonKey" type="password" placeholder="eyJ..." />
+        <button id="saveLoginSupabase" class="secondary" type="button">Guardar Supabase</button>
+      </details>
+
       <label for="loginUsername">Usuario</label>
-      <input id="loginUsername" type="text" autocomplete="username" />
+      <input id="loginUsername" type="email" autocomplete="username" placeholder="correo@ejemplo.com" />
 
       <label for="loginPassword">Clave</label>
       <input id="loginPassword" type="password" autocomplete="current-password" />
@@ -25,10 +34,10 @@
   <main id="registerView" class="container auth-view hidden">
     <section class="card auth-card">
       <h1>Crear cuenta</h1>
-      <p>Registra un usuario local para esta extensión</p>
+      <p>Registra una cuenta para usar la extensión</p>
 
-      <label for="registerUsername">Usuario</label>
-      <input id="registerUsername" type="text" autocomplete="username" />
+      <label for="registerUsername">Correo</label>
+      <input id="registerUsername" type="email" autocomplete="username" placeholder="correo@ejemplo.com" />
 
       <label for="registerPassword">Clave</label>
       <input id="registerPassword" type="password" autocomplete="new-password" />
@@ -75,6 +84,12 @@
     <section id="configPanel" class="card config-panel hidden">
       <label for="backendUrl">Backend API</label>
       <input id="backendUrl" type="url" placeholder="http://localhost:3001/api/draft" />
+
+      <label for="supabaseUrl">Supabase URL</label>
+      <input id="supabaseUrl" type="url" placeholder="https://tu-proyecto.supabase.co" />
+
+      <label for="supabaseAnonKey">Supabase anon key</label>
+      <input id="supabaseAnonKey" type="password" placeholder="eyJ..." />
       <button id="saveConfig" class="secondary">Guardar configuración</button>
 
       <label for="lawyerName">Nombre completo del abogado</label>
@@ -103,13 +118,13 @@
 
       <div class="settings-divider"></div>
       <label for="currentUsername">Usuario actual</label>
-      <input id="currentUsername" type="text" autocomplete="username" />
+      <input id="currentUsername" type="email" autocomplete="username" />
 
       <label for="currentPassword">Clave actual</label>
       <input id="currentPassword" type="password" autocomplete="current-password" />
 
       <label for="newUsername">Nuevo usuario</label>
-      <input id="newUsername" type="text" autocomplete="username" />
+      <input id="newUsername" type="email" autocomplete="username" />
 
       <label for="newPassword">Nueva clave</label>
       <input id="newPassword" type="password" autocomplete="new-password" />

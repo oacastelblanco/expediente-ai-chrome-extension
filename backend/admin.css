@@ -1,0 +1,192 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #f6f7fb;
+  color: #172033;
+  font-family: Inter, Arial, sans-serif;
+}
+
+.shell {
+  margin: 0 auto;
+  max-width: 920px;
+  padding: 28px;
+}
+
+header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 24px;
+}
+
+h2 {
+  font-size: 16px;
+  margin-bottom: 14px;
+}
+
+header p,
+.hint,
+.message {
+  color: #667085;
+  font-size: 13px;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #eaecf0;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.04);
+  margin-bottom: 16px;
+  padding: 18px;
+}
+
+.hidden {
+  display: none;
+}
+
+.pill {
+  background: #eef2f6;
+  border-radius: 999px;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+}
+
+.pill.ok {
+  background: #dcfae6;
+  color: #067647;
+}
+
+.pill.error {
+  background: #fee4e2;
+  color: #b42318;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 12px 0 6px;
+}
+
+input,
+select {
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  font: inherit;
+  outline: none;
+  padding: 10px;
+  width: 100%;
+}
+
+input:focus,
+select:focus {
+  border-color: #475467;
+}
+
+button {
+  background: #172033;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+  margin-top: 14px;
+  padding: 10px 12px;
+}
+
+button.secondary {
+  background: #eef2f6;
+  color: #172033;
+  margin-top: 0;
+}
+
+.section-title {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.section-title h2 {
+  margin: 0;
+}
+
+.status-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0 0 16px;
+}
+
+.status-grid div {
+  border: 1px solid #eef2f6;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+dt {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.settings {
+  border-top: 1px solid #eef2f6;
+  padding-top: 4px;
+}
+
+.hint {
+  margin-top: 12px;
+}
+
+.message {
+  min-height: 18px;
+  margin-top: 10px;
+}
+
+.message.error {
+  color: #b42318;
+}
+
+.message.ok {
+  color: #067647;
+}
+
+@media (max-width: 700px) {
+  .shell {
+    padding: 16px;
+  }
+
+  header,
+  .section-title {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+}
