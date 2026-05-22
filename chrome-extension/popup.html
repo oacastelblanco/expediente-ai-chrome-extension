@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Expediente AI</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main id="loginView" class="container auth-view">
+    <section class="card auth-card">
+      <h1>Expediente AI</h1>
+      <p>Ingresa tu clave para continuar</p>
+
+      <label for="loginUsername">Usuario</label>
+      <input id="loginUsername" type="text" autocomplete="username" />
+
+      <label for="loginPassword">Clave</label>
+      <input id="loginPassword" type="password" autocomplete="current-password" />
+      <button id="loginButton" type="button">Ingresar</button>
+      <button id="showRegister" class="secondary" type="button">Registrarse</button>
+      <p id="loginMessage" class="message"></p>
+    </section>
+  </main>
+
+  <main id="registerView" class="container auth-view hidden">
+    <section class="card auth-card">
+      <h1>Crear cuenta</h1>
+      <p>Registra un usuario local para esta extensión</p>
+
+      <label for="registerUsername">Usuario</label>
+      <input id="registerUsername" type="text" autocomplete="username" />
+
+      <label for="registerPassword">Clave</label>
+      <input id="registerPassword" type="password" autocomplete="new-password" />
+
+      <label for="registerConfirmPassword">Confirmar clave</label>
+      <input id="registerConfirmPassword" type="password" autocomplete="new-password" />
+
+      <label for="registerLawyerPrefix">Prefijo profesional</label>
+      <select id="registerLawyerPrefix">
+        <option value="Ab.">Ab.</option>
+        <option value="Dr.">Dr.</option>
+      </select>
+
+      <label for="registerLawyerName">Nombre completo del abogado</label>
+      <input id="registerLawyerName" type="text" placeholder="Nombre y apellido" />
+
+      <label for="registerLawyerBarNumber">Número de matrícula</label>
+      <input id="registerLawyerBarNumber" type="text" placeholder="Matrícula profesional" />
+
+      <label for="registerLawyerEmail">Correo predeterminado</label>
+      <input id="registerLawyerEmail" type="email" placeholder="correo@ejemplo.com" />
+
+      <label for="registerLawyerJudicialBox">Casillero judicial predeterminado</label>
+      <input id="registerLawyerJudicialBox" type="text" placeholder="Casillero judicial" />
+
+      <button id="registerButton" type="button">Crear cuenta</button>
+      <button id="backToLogin" class="secondary" type="button">Volver</button>
+      <p id="registerMessage" class="message"></p>
+    </section>
+  </main>
+
+  <main id="appView" class="container hidden">
+    <header>
+      <div>
+        <h1>Expediente AI</h1>
+        <p>Asistente para borradores judiciales</p>
+      </div>
+      <div class="header-actions">
+        <span id="statusDot" class="dot"></span>
+        <button id="toggleConfig" class="icon-button" type="button" title="Configuración" aria-label="Configuración">⚙</button>
+      </div>
+    </header>
+
+    <section id="configPanel" class="card config-panel hidden">
+      <label for="backendUrl">Backend API</label>
+      <input id="backendUrl" type="url" placeholder="http://localhost:3001/api/draft" />
+      <button id="saveConfig" class="secondary">Guardar configuración</button>
+
+      <label for="lawyerName">Nombre completo del abogado</label>
+      <input id="lawyerName" type="text" placeholder="Nombre y apellido" />
+
+      <label for="lawyerPrefix">Prefijo profesional</label>
+      <select id="lawyerPrefix">
+        <option value="Ab.">Ab.</option>
+        <option value="Dr.">Dr.</option>
+      </select>
+
+      <label for="lawyerBarNumber">Número de matrícula</label>
+      <input id="lawyerBarNumber" type="text" placeholder="Matrícula profesional" />
+      <label for="lawyerEmail">Correo predeterminado</label>
+      <input id="lawyerEmail" type="email" placeholder="correo@ejemplo.com" />
+
+      <label for="lawyerJudicialBox">Casillero judicial predeterminado</label>
+      <input id="lawyerJudicialBox" type="text" placeholder="Casillero judicial" />
+
+      <button id="saveProfile" class="secondary">Guardar perfil</button>
+
+      <label class="toggle-row" for="showCapturedText">
+        <span>Mostrar texto capturado</span>
+        <input id="showCapturedText" type="checkbox" checked />
+      </label>
+
+      <div class="settings-divider"></div>
+      <label for="currentUsername">Usuario actual</label>
+      <input id="currentUsername" type="text" autocomplete="username" />
+
+      <label for="currentPassword">Clave actual</label>
+      <input id="currentPassword" type="password" autocomplete="current-password" />
+
+      <label for="newUsername">Nuevo usuario</label>
+      <input id="newUsername" type="text" autocomplete="username" />
+
+      <label for="newPassword">Nueva clave</label>
+      <input id="newPassword" type="password" autocomplete="new-password" />
+
+      <label for="confirmPassword">Confirmar nueva clave</label>
+      <input id="confirmPassword" type="password" autocomplete="new-password" />
+      <button id="changePassword" class="secondary" type="button">Cambiar clave</button>
+    </section>
+
+    <section class="card active-profile">
+      <div class="meta">
+        <strong>Perfil activo</strong>
+      </div>
+      <div>
+        <span>Abogado</span>
+        <strong id="activeLawyerName">Sin configurar</strong>
+      </div>
+      <div>
+        <span>Matrícula</span>
+        <strong id="activeLawyerBarNumber">Sin configurar</strong>
+      </div>
+    </section>
+
+    <section id="representationCard" class="card representation-card hidden">
+      <strong>Selecciona en representación de quién se presentará el escrito.</strong>
+      <div id="representationOptions" class="party-options"></div>
+    </section>
+
+    <section id="caseInfoCard" class="card case-info hidden">
+      <div class="meta">
+        <strong>Datos del expediente</strong>
+      </div>
+      <dl>
+        <div>
+          <dt>Judicatura</dt>
+          <dd id="caseJudicatura">-</dd>
+        </div>
+        <div>
+          <dt>No. proceso</dt>
+          <dd id="caseNumeroProceso">-</dd>
+        </div>
+        <div>
+          <dt>Procedimiento</dt>
+          <dd id="caseProcedimiento">-</dd>
+        </div>
+        <div>
+          <dt>Actor</dt>
+          <dd id="caseActor" class="party-options"></dd>
+        </div>
+        <div>
+          <dt>Demandado</dt>
+          <dd id="caseDemandado" class="party-options"></dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="card">
+      <label for="documentType">Tipo de escrito</label>
+      <select id="documentType" required>
+        <option value="" selected disabled>Selecciona un tipo de escrito</option>
+        <option value="peticion_simple">Petición simple</option>
+        <option value="contestacion">Contestación</option>
+        <option value="impulso_procesal">Impulso procesal</option>
+        <option value="solicitud_medida">Solicitud de medida</option>
+        <option value="recurso">Recurso / impugnación</option>
+        <option value="alegato">Alegato</option>
+        <option value="otro">Otro</option>
+      </select>
+
+      <label for="instruction">Instrucción</label>
+      <textarea id="instruction" rows="7" placeholder="Ej.: Redacta un escrito solicitando el levantamiento de medidas cautelares, con base en el acuerdo de pago que consta en el expediente."></textarea>
+
+      <label class="toggle-row" for="enableNotifications">
+        <span>Señalar nuevo buzón de notificaciones</span>
+        <input id="enableNotifications" type="checkbox" />
+      </label>
+      <div id="notificationFields" class="notification-fields hidden">
+        <input id="notificationEmail" type="email" placeholder="Correo electrónico" />
+        <input id="notificationJudicialBox" type="text" placeholder="Casillero judicial" />
+      </div>
+
+      <div class="row">
+        <button id="readPage" class="secondary">Leer expediente</button>
+        <button id="generate">Generar escrito</button>
+      </div>
+    </section>
+
+    <section id="capturedTextCard" class="card">
+      <div class="meta">
+        <strong>Texto capturado:</strong>
+        <span id="charCount">0 caracteres</span>
+      </div>
+      <textarea id="capturedText" rows="6" placeholder="Aquí aparecerá el texto extraído de la página actual. Puedes editarlo antes de enviar."></textarea>
+    </section>
+
+    <section class="card">
+      <div class="meta">
+        <strong>Borrador generado</strong>
+        <button id="copyResult" class="link">Copiar</button>
+      </div>
+      <textarea id="result" rows="12" placeholder="El resultado aparecerá aquí."></textarea>
+      <div class="row export-actions">
+        <button id="downloadWord" class="secondary" type="button">Descargar DOCX</button>
+        <button id="downloadPdf" class="secondary" type="button">Descargar PDF</button>
+      </div>
+    </section>
+
+    <p id="message" class="message"></p>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>

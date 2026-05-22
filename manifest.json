@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Expediente AI - Asistente Judicial",
+  "version": "0.1.0",
+  "description": "Lee el expediente electrónico visible en pantalla y genera borradores de escritos judiciales mediante IA.",
+  "permissions": ["activeTab", "scripting", "storage", "sidePanel", "downloads"],
+  "host_permissions": [
+    "http://localhost:3001/*",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "action": {
+    "default_title": "Expediente AI"
+  },
+  "side_panel": {
+    "default_path": "chrome-extension/popup.html"
+  },
+  "background": {
+    "service_worker": "chrome-extension/service_worker.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "chrome-extension/icons/icon16.png",
+    "32": "chrome-extension/icons/icon32.png",
+    "48": "chrome-extension/icons/icon48.png",
+    "128": "chrome-extension/icons/icon128.png"
+  }
+}
