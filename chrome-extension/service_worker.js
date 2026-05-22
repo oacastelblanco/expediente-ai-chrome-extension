@@ -248,6 +248,13 @@ function extractCaseMetadata(text) {
 
 async function requestPdfText(pdf) {
   const backendUrl = await getBackendUrl();
+  const pdfSizeMb = ((pdf.base64?.length || 0) * 0.75) / (1024 * 1024);
+  const isLikelyVercel = /vercel\.app/i.test(backendUrl);
+
+  if (isLikelyVercel && pdfSizeMb > 4) {
+    throw new Error(`El PDF capturado pesa aproximadamente ${pdfSizeMb.toFixed(1)} MB. Vercel suele rechazar requests grandes antes de llegar al backend. Para leer PDFs de este tamaño en producción conviene usar Render/Railway/Fly.io o enviar el PDF vía Supabase Storage.`);
+  }
+
   let response;
 
   try {
@@ -260,7 +267,7 @@ async function requestPdfText(pdf) {
       })
     });
   } catch (error) {
-    throw new Error(`No se pudo conectar con /api/pdf-text. Revisa CORS, URL de Vercel o variables de entorno. Detalle: ${error.message}`);
+    throw new Error(`No se pudo conectar con /api/pdf-text. PDF aproximado: ${pdfSizeMb.toFixed(1)} MB. Si usas Vercel, puede ser limite de tamaño de request o CORS/preflight. Detalle: ${error.message}`);
   }
 
   const data = await response.json().catch(() => ({}));
