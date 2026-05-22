@@ -3,11 +3,18 @@ import { config } from "dotenv";
 import express from "express";
 import cors from "cors";
 import crypto from "node:crypto";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const backendDir = dirname(fileURLToPath(import.meta.url));
 config({ path: join(backendDir, ".env"), override: false });
+
+const adminAssets = {
+  html: readFileSync(join(backendDir, "admin.html"), "utf8"),
+  css: readFileSync(join(backendDir, "admin.css"), "utf8"),
+  js: readFileSync(join(backendDir, "admin.js"), "utf8")
+};
 
 const app = express();
 
@@ -458,15 +465,15 @@ app.get("/health", handleHealth);
 app.get("/api/health", handleHealth);
 
 app.get("/admin", (_req, res) => {
-  res.sendFile(join(backendDir, "admin.html"));
+  res.type("html").send(adminAssets.html);
 });
 
 app.get("/admin/admin.css", (_req, res) => {
-  res.sendFile(join(backendDir, "admin.css"));
+  res.type("css").send(adminAssets.css);
 });
 
 app.get("/admin/admin.js", (_req, res) => {
-  res.sendFile(join(backendDir, "admin.js"));
+  res.type("js").send(adminAssets.js);
 });
 
 app.post("/admin/api/login", (req, res) => {
