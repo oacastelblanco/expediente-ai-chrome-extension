@@ -23,6 +23,7 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY?.trim();
 const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-5-mini";
 const SUPABASE_URL = process.env.SUPABASE_URL?.trim().replace(/\/+$/, "") || "";
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY?.trim() || "";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || "";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD?.trim() || "";
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET?.trim() || crypto.randomBytes(32).toString("hex");
 const ALLOWED_EXTENSION_ORIGIN = process.env.ALLOWED_EXTENSION_ORIGIN || "*";
@@ -81,6 +82,10 @@ app.use(express.json({ limit: "25mb" }));
 
 function isSupabaseConfigured() {
   return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+}
+
+function isSupabaseAdminConfigured() {
+  return Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
 }
 
 function shouldRequireAuth() {
@@ -144,6 +149,61 @@ async function verifySupabaseUser(req, res, next) {
   }
 }
 
+async function supabaseAdminFetch(path, options = {}) {
+  if (!isSupabaseAdminConfigured()) {
+    throw new Error("Falta configurar SUPABASE_SERVICE_ROLE_KEY en el backend.");
+  }
+
+  const response = await fetch(`${SUPABASE_URL}${path}`, {
+    ...options,
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    }
+  });
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.message || data?.error || `Error Supabase Admin: ${response.status}`);
+  }
+
+  return data;
+}
+
+async function requireEnabledUser(req, res, next) {
+  if (!shouldRequireAuth()) {
+    next();
+    return;
+  }
+
+  if (!req.user?.id) {
+    res.status(401).json({ error: "Sesion requerida. Inicia sesion nuevamente." });
+    return;
+  }
+
+  try {
+    const rows = await supabaseAdminFetch(`/rest/v1/profiles?id=eq.${encodeURIComponent(req.user.id)}&select=id,is_enabled`, {
+      method: "GET"
+    });
+    const profile = Array.isArray(rows) ? rows[0] : null;
+
+    if (!profile?.is_enabled) {
+      res.status(403).json({
+        error: "Tu usuario aun no esta habilitado para generar escritos. Solicita activacion al administrador."
+      });
+      return;
+    }
+
+    next();
+  } catch (error) {
+    res.status(500).json({
+      error: error.message || "No se pudo verificar si el usuario esta habilitado."
+    });
+  }
+}
+
 function signAdminToken(payload) {
   const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = crypto
@@ -195,6 +255,7 @@ function getAdminStatus() {
       openaiConfigured: Boolean(OPENAI_API_KEY && OPENAI_API_KEY !== "pega_aqui_tu_api_key"),
       openaiModel: adminConfig.openaiModel,
       supabaseConfigured: isSupabaseConfigured(),
+      supabaseAdminConfigured: isSupabaseAdminConfigured(),
       authMode: adminConfig.authMode,
       authRequiredNow: shouldRequireAuth(),
       allowedExtensionOrigin: ALLOWED_EXTENSION_ORIGIN
@@ -511,6 +572,41 @@ app.get("/admin/api/status", requireAdmin, (_req, res) => {
   res.json(getAdminStatus());
 });
 
+app.get("/admin/api/users", requireAdmin, async (_req, res) => {
+  try {
+    const users = await supabaseAdminFetch("/rest/v1/profiles?select=id,email,prefijo,nombre_completo,matricula_abogado,is_enabled,created_at&order=created_at.desc", {
+      method: "GET"
+    });
+
+    res.json({ ok: true, users });
+  } catch (error) {
+    res.status(500).json({
+      error: error.message || "No se pudieron cargar los usuarios."
+    });
+  }
+});
+
+app.patch("/admin/api/users/:id", requireAdmin, async (req, res) => {
+  try {
+    if (typeof req.body?.is_enabled !== "boolean") {
+      res.status(400).json({ error: "is_enabled debe ser booleano." });
+      return;
+    }
+
+    const rows = await supabaseAdminFetch(`/rest/v1/profiles?id=eq.${encodeURIComponent(req.params.id)}&select=id,email,prefijo,nombre_completo,matricula_abogado,is_enabled,created_at`, {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ is_enabled: req.body.is_enabled })
+    });
+
+    res.json({ ok: true, user: Array.isArray(rows) ? rows[0] : null });
+  } catch (error) {
+    res.status(500).json({
+      error: error.message || "No se pudo actualizar el usuario."
+    });
+  }
+});
+
 app.put("/admin/api/config", requireAdmin, (req, res) => {
   const nextModel = String(req.body?.openaiModel || "").trim();
   const nextAuthMode = String(req.body?.authMode || "").trim();
@@ -634,8 +730,8 @@ async function handleDraft(req, res) {
   }
 }
 
-app.post("/api/draft", verifySupabaseUser, handleDraft);
-app.post("/draft", verifySupabaseUser, handleDraft);
+app.post("/api/draft", verifySupabaseUser, requireEnabledUser, handleDraft);
+app.post("/draft", verifySupabaseUser, requireEnabledUser, handleDraft);
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 

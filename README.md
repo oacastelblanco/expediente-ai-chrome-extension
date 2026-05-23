@@ -94,10 +94,13 @@ Para que el backend solo acepte llamadas de usuarios autenticados, configura est
 ```env
 SUPABASE_URL=https://tu-proyecto.supabase.co
 SUPABASE_ANON_KEY=tu_anon_public_key
+SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
 AUTH_MODE=auto
 ```
 
 Con `AUTH_MODE=auto`, el backend exige sesion cuando `SUPABASE_URL` y `SUPABASE_ANON_KEY` existen. La extension enviara automaticamente el token de Supabase al backend despues de iniciar sesion.
+
+`SUPABASE_SERVICE_ROLE_KEY` se usa solo en el backend para que el panel admin pueda habilitar o deshabilitar usuarios. No la pongas en la extension.
 
 Opciones de `AUTH_MODE`:
 

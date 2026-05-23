@@ -157,6 +157,42 @@ dd {
   padding-top: 4px;
 }
 
+.users-list {
+  display: grid;
+  gap: 10px;
+}
+
+.user-row {
+  align-items: center;
+  border: 1px solid #eef2f6;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr auto;
+  padding: 12px;
+}
+
+.user-name {
+  font-weight: 700;
+}
+
+.user-meta {
+  color: #667085;
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.user-toggle {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.user-toggle input {
+  width: auto;
+}
+
 .hint {
   margin-top: 12px;
 }
@@ -187,6 +223,11 @@ dd {
   }
 
   .status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .user-row {
+    align-items: flex-start;
     grid-template-columns: 1fr;
   }
 }
