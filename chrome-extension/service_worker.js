@@ -728,6 +728,30 @@ async function requestDraft(payload) {
   return data;
 }
 
+async function requestUserPermissions() {
+  const backendUrl = await getBackendUrl();
+  const permissionsUrl = new URL("/api/me/permissions", backendUrl).toString();
+  let response;
+
+  try {
+    const authHeaders = await getBackendAuthHeaders();
+    response = await fetch(permissionsUrl, {
+      method: "GET",
+      headers: authHeaders
+    });
+  } catch (error) {
+    throw new Error(`No se pudo verificar si el usuario esta habilitado. Detalle: ${error.message}`);
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || `Error al verificar permisos: ${response.status}`);
+  }
+
+  return data.permissions || {};
+}
+
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   (async () => {
     if (request?.type === "READ_PAGE") {
@@ -739,6 +763,12 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     if (request?.type === "GENERATE_DRAFT") {
       const result = await requestDraft(request.payload);
       sendResponse({ ok: true, data: result });
+      return;
+    }
+
+    if (request?.type === "CHECK_GENERATE_PERMISSION") {
+      const permissions = await requestUserPermissions();
+      sendResponse({ ok: true, permissions });
       return;
     }
 

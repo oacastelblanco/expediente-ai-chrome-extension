@@ -603,9 +603,18 @@ async function generateDraft() {
   }
 
   setBusy(true);
-  setMessage("Generando borrador...");
+  setMessage("Verificando permisos...");
 
   try {
+    const permissionResponse = await sendMessage({ type: "CHECK_GENERATE_PERMISSION" });
+    if (!permissionResponse?.ok) throw new Error(permissionResponse?.error);
+
+    if (!permissionResponse.permissions?.canGenerate) {
+      throw new Error("Tu usuario aun no esta habilitado para generar escritos. Solicita activacion al administrador.");
+    }
+
+    setMessage("Generando borrador...");
+
     const response = await sendMessage({
       type: "GENERATE_DRAFT",
       payload: {

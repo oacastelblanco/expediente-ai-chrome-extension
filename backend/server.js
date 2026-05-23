@@ -184,12 +184,7 @@ async function requireEnabledUser(req, res, next) {
   }
 
   try {
-    const rows = await supabaseAdminFetch(`/rest/v1/profiles?id=eq.${encodeURIComponent(req.user.id)}&select=id,is_enabled`, {
-      method: "GET"
-    });
-    const profile = Array.isArray(rows) ? rows[0] : null;
-
-    if (!profile?.is_enabled) {
+    if (!(await getUserEnablement(req.user.id))) {
       res.status(403).json({
         error: "Tu usuario aun no esta habilitado para generar escritos. Solicita activacion al administrador."
       });
@@ -202,6 +197,14 @@ async function requireEnabledUser(req, res, next) {
       error: error.message || "No se pudo verificar si el usuario esta habilitado."
     });
   }
+}
+
+async function getUserEnablement(userId) {
+  const rows = await supabaseAdminFetch(`/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=id,is_enabled`, {
+    method: "GET"
+  });
+  const profile = Array.isArray(rows) ? rows[0] : null;
+  return Boolean(profile?.is_enabled);
 }
 
 function signAdminToken(payload) {
@@ -533,6 +536,23 @@ app.get("/api/client-config", (_req, res) => {
       anonKey: SUPABASE_ANON_KEY
     }
   });
+});
+
+app.get("/api/me/permissions", verifySupabaseUser, async (req, res) => {
+  try {
+    const canGenerate = await getUserEnablement(req.user.id);
+    res.json({
+      ok: true,
+      user: req.user,
+      permissions: {
+        canGenerate
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error.message || "No se pudieron verificar los permisos del usuario."
+    });
+  }
 });
 
 app.get("/admin", (_req, res) => {
