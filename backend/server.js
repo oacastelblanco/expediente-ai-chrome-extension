@@ -52,7 +52,7 @@ app.use((req, res, next) => {
   }
 
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-admin-password");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Access-Control-Max-Age", "86400");
 
   if (req.method === "OPTIONS") {
@@ -74,44 +74,8 @@ app.use(cors({
     callback(null, false);
   },
   methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "x-admin-password"]
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
-
-app.post("/admin/api/login", (req, res) => {
-  try {
-    if (!ADMIN_PASSWORD) {
-      res.status(503).json({
-        error: "Falta configurar ADMIN_PASSWORD en Vercel Environment Variables para Production y hacer redeploy."
-      });
-      return;
-    }
-
-    const password = typeof req.headers["x-admin-password"] === "string"
-      ? req.headers["x-admin-password"]
-      : "";
-
-    if (!password) {
-      res.status(400).json({ error: "Falta enviar la clave de administrador." });
-      return;
-    }
-
-    if (password !== ADMIN_PASSWORD) {
-      res.status(401).json({ error: "Clave de administrador incorrecta." });
-      return;
-    }
-
-    const token = signAdminToken({
-      role: "admin",
-      exp: Date.now() + 1000 * 60 * 60 * 8
-    });
-
-    res.json({ ok: true, token });
-  } catch (error) {
-    res.status(500).json({
-      error: `No se pudo iniciar sesion de administrador: ${error.message || "error interno"}.`
-    });
-  }
-});
 
 app.use(express.json({ limit: "25mb" }));
 
@@ -231,8 +195,6 @@ function getAdminStatus() {
       openaiConfigured: Boolean(OPENAI_API_KEY && OPENAI_API_KEY !== "pega_aqui_tu_api_key"),
       openaiModel: adminConfig.openaiModel,
       supabaseConfigured: isSupabaseConfigured(),
-      adminPasswordConfigured: Boolean(ADMIN_PASSWORD),
-      adminSessionSecretConfigured: Boolean(process.env.ADMIN_SESSION_SECRET?.trim()),
       authMode: adminConfig.authMode,
       authRequiredNow: shouldRequireAuth(),
       allowedExtensionOrigin: ALLOWED_EXTENSION_ORIGIN
@@ -514,15 +476,25 @@ app.get("/admin/admin.js", (_req, res) => {
   res.type("js").send(adminAssets.js);
 });
 
-app.get("/admin/api/setup", (_req, res) => {
-  res.json({
-    ok: true,
-    adminPasswordConfigured: Boolean(ADMIN_PASSWORD),
-    adminSessionSecretConfigured: Boolean(process.env.ADMIN_SESSION_SECRET?.trim()),
-    supabaseConfigured: isSupabaseConfigured(),
-    authMode: adminConfig.authMode,
-    openaiConfigured: Boolean(OPENAI_API_KEY && OPENAI_API_KEY !== "pega_aqui_tu_api_key")
+app.post("/admin/api/login", (req, res) => {
+  if (!ADMIN_PASSWORD) {
+    res.status(503).json({
+      error: "Falta configurar ADMIN_PASSWORD en Vercel Environment Variables para Production y hacer redeploy."
+    });
+    return;
+  }
+
+  if (req.body?.password !== ADMIN_PASSWORD) {
+    res.status(401).json({ error: "Clave de administrador incorrecta." });
+    return;
+  }
+
+  const token = signAdminToken({
+    role: "admin",
+    exp: Date.now() + 1000 * 60 * 60 * 8
   });
+
+  res.json({ ok: true, token });
 });
 
 app.get("/admin/api/status", requireAdmin, (_req, res) => {
