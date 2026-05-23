@@ -152,6 +152,11 @@ header p {
   overflow-wrap: anywhere;
 }
 
+.logout-button {
+  margin-top: 8px;
+  width: 100%;
+}
+
 .party-options {
   display: flex;
   flex-wrap: wrap;

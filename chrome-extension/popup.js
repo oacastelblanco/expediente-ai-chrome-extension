@@ -36,6 +36,7 @@ const lawyerEmail = $("lawyerEmail");
 const lawyerJudicialBox = $("lawyerJudicialBox");
 const activeLawyerName = $("activeLawyerName");
 const activeLawyerBarNumber = $("activeLawyerBarNumber");
+const logoutButton = $("logoutButton");
 const enableNotifications = $("enableNotifications");
 const notificationFields = $("notificationFields");
 const notificationEmail = $("notificationEmail");
@@ -111,6 +112,16 @@ async function unlockApp() {
   await loadConfig();
 }
 
+async function initializeSession() {
+  const response = await sendMessage({ type: "GET_SESSION" });
+  if (response?.ok && response.authenticated) {
+    await unlockApp();
+    return;
+  }
+
+  showLoginView();
+}
+
 async function login() {
   const supabaseConfig = await getSupabaseConfig();
 
@@ -143,6 +154,26 @@ async function login() {
   loginPassword.value = "";
   setLoginMessage("");
   await unlockApp();
+}
+
+async function logout() {
+  const response = await sendMessage({ type: "LOGOUT" });
+  if (!response?.ok) {
+    setMessage(response?.error || "No se pudo cerrar sesión.", "error");
+    return;
+  }
+
+  loginUsername.value = "";
+  loginPassword.value = "";
+  currentPageData = null;
+  selectedRepresentation = null;
+  capturedText.value = "";
+  result.value = "";
+  updateCount();
+  renderCaseInfo({});
+  setMessage("");
+  showLoginView();
+  setLoginMessage("Sesión cerrada.");
 }
 
 async function registerAccount() {
@@ -931,6 +962,9 @@ registerConfirmPassword.addEventListener("keydown", (event) => {
 });
 $("saveProfile").addEventListener("click", saveProfile);
 $("changePassword").addEventListener("click", changePassword);
+logoutButton.addEventListener("click", () => {
+  logout().catch(() => setMessage("No se pudo cerrar sesión.", "error"));
+});
 $("toggleConfig").addEventListener("click", () => {
   configPanel.classList.toggle("hidden");
 });
@@ -948,4 +982,5 @@ $("downloadWord").addEventListener("click", downloadWord);
 $("downloadPdf").addEventListener("click", downloadPdf);
 capturedText.addEventListener("input", updateCount);
 
+initializeSession().catch(showLoginView);
 

@@ -94,9 +94,43 @@ async function saveSupabaseSession(session) {
   await chrome.storage.local.set({ supabaseSession: session });
 }
 
-async function getBackendAuthHeaders() {
+async function getStoredSupabaseSession() {
   const stored = await chrome.storage.local.get(["supabaseSession"]);
-  const token = stored.supabaseSession?.access_token;
+  return stored.supabaseSession || null;
+}
+
+function isSessionExpiring(session) {
+  const expiresAt = Number(session?.expires_at || 0);
+  if (!expiresAt) return false;
+  return expiresAt * 1000 < Date.now() + 60000;
+}
+
+async function refreshSupabaseSession(session) {
+  if (!session?.refresh_token) return null;
+
+  try {
+    const data = await supabaseFetch("/auth/v1/token?grant_type=refresh_token", {
+      method: "POST",
+      useSession: false,
+      body: JSON.stringify({ refresh_token: session.refresh_token })
+    });
+    await saveSupabaseSession(data);
+    return data;
+  } catch (_error) {
+    await chrome.storage.local.remove(["supabaseSession"]);
+    return null;
+  }
+}
+
+async function getValidSupabaseSession() {
+  const session = await getStoredSupabaseSession();
+  if (!session?.access_token) return null;
+  if (!isSessionExpiring(session)) return session;
+  return refreshSupabaseSession(session);
+}
+
+async function getBackendAuthHeaders() {
+  const token = (await getValidSupabaseSession())?.access_token;
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -111,6 +145,39 @@ async function loadSupabaseProfile(userId) {
   const normalized = profileFromSupabase(profile);
   await chrome.storage.sync.set({ profile: normalized });
   return normalized;
+}
+
+async function getCurrentSupabaseUser() {
+  const session = await getValidSupabaseSession();
+  if (!session?.access_token) return null;
+
+  try {
+    const data = await supabaseFetch("/auth/v1/user");
+    if (!data?.id) {
+      await chrome.storage.local.remove(["supabaseSession"]);
+      return null;
+    }
+
+    await loadSupabaseProfile(data.id);
+    return data;
+  } catch (_error) {
+    await chrome.storage.local.remove(["supabaseSession"]);
+    return null;
+  }
+}
+
+async function supabaseLogout() {
+  const session = await getStoredSupabaseSession();
+
+  if (session?.access_token) {
+    try {
+      await supabaseFetch("/auth/v1/logout", { method: "POST" });
+    } catch (_error) {
+      // Local cleanup is enough if the remote logout endpoint is unavailable.
+    }
+  }
+
+  await chrome.storage.local.remove(["supabaseSession"]);
 }
 
 async function updateSupabaseProfile(profile) {
@@ -678,6 +745,18 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     if (request?.type === "GET_SUPABASE_CONFIG") {
       const config = await getSupabaseConfig();
       sendResponse({ ok: true, config });
+      return;
+    }
+
+    if (request?.type === "GET_SESSION") {
+      const user = await getCurrentSupabaseUser();
+      sendResponse({ ok: true, authenticated: Boolean(user), user });
+      return;
+    }
+
+    if (request?.type === "LOGOUT") {
+      await supabaseLogout();
+      sendResponse({ ok: true });
       return;
     }
 
