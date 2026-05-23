@@ -36,20 +36,6 @@ body {
   margin: 0 0 12px;
 }
 
-.auth-settings {
-  border: 1px solid #eef2f6;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  padding: 8px;
-}
-
-.auth-settings summary {
-  color: #475467;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
-}
-
 .settings-divider {
   border-top: 1px solid #eef2f6;
   margin: 14px 0 10px;

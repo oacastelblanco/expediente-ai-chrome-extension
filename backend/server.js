@@ -464,6 +464,16 @@ function handleHealth(_req, res) {
 app.get("/health", handleHealth);
 app.get("/api/health", handleHealth);
 
+app.get("/api/client-config", (_req, res) => {
+  res.json({
+    ok: true,
+    supabase: {
+      url: SUPABASE_URL,
+      anonKey: SUPABASE_ANON_KEY
+    }
+  });
+});
+
 app.get("/admin", (_req, res) => {
   res.type("html").send(adminAssets.html);
 });

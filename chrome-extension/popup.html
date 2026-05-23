@@ -11,15 +11,6 @@
       <h1>Expediente AI</h1>
       <p>Ingresa tu clave para continuar</p>
 
-      <details class="auth-settings">
-        <summary>Configurar Supabase</summary>
-        <label for="loginSupabaseUrl">Supabase URL</label>
-        <input id="loginSupabaseUrl" type="url" placeholder="https://tu-proyecto.supabase.co" />
-        <label for="loginSupabaseAnonKey">Supabase anon key</label>
-        <input id="loginSupabaseAnonKey" type="password" placeholder="eyJ..." />
-        <button id="saveLoginSupabase" class="secondary" type="button">Guardar Supabase</button>
-      </details>
-
       <label for="loginUsername">Usuario</label>
       <input id="loginUsername" type="email" autocomplete="username" placeholder="correo@ejemplo.com" />
 
@@ -82,15 +73,6 @@
     </header>
 
     <section id="configPanel" class="card config-panel hidden">
-      <label for="backendUrl">Backend API</label>
-      <input id="backendUrl" type="url" placeholder="http://localhost:3001/api/draft" />
-
-      <label for="supabaseUrl">Supabase URL</label>
-      <input id="supabaseUrl" type="url" placeholder="https://tu-proyecto.supabase.co" />
-
-      <label for="supabaseAnonKey">Supabase anon key</label>
-      <input id="supabaseAnonKey" type="password" placeholder="eyJ..." />
-      <button id="saveConfig" class="secondary">Guardar configuración</button>
 
       <label for="lawyerName">Nombre completo del abogado</label>
       <input id="lawyerName" type="text" placeholder="Nombre y apellido" />

@@ -16,11 +16,6 @@ const registerLawyerBarNumber = $("registerLawyerBarNumber");
 const registerLawyerEmail = $("registerLawyerEmail");
 const registerLawyerJudicialBox = $("registerLawyerJudicialBox");
 const registerMessage = $("registerMessage");
-const loginSupabaseUrl = $("loginSupabaseUrl");
-const loginSupabaseAnonKey = $("loginSupabaseAnonKey");
-const backendUrl = $("backendUrl");
-const supabaseUrl = $("supabaseUrl");
-const supabaseAnonKey = $("supabaseAnonKey");
 const documentType = $("documentType");
 const instruction = $("instruction");
 const capturedText = $("capturedText");
@@ -114,23 +109,6 @@ async function unlockApp() {
   registerView.classList.add("hidden");
   appView.classList.remove("hidden");
   await loadConfig();
-}
-
-async function saveSupabaseConfigFromLogin() {
-  const response = await sendMessage({
-    type: "SAVE_SUPABASE_CONFIG",
-    config: {
-      url: loginSupabaseUrl.value.trim(),
-      anonKey: loginSupabaseAnonKey.value.trim()
-    }
-  });
-
-  if (!response?.ok) {
-    setLoginMessage(response?.error || "No se pudo guardar Supabase.");
-    return;
-  }
-
-  setLoginMessage("Supabase configurado.");
 }
 
 async function login() {
@@ -270,7 +248,6 @@ async function registerAccount() {
 function setBusy(isBusy) {
   $("readPage").disabled = isBusy;
   $("generate").disabled = isBusy;
-  $("saveConfig").disabled = isBusy;
 }
 
 function updateCount() {
@@ -398,11 +375,6 @@ function getNotificationSettings() {
 async function loadConfig() {
   const response = await sendMessage({ type: "GET_CONFIG" });
   if (response?.ok) {
-    backendUrl.value = response.backendUrl;
-    supabaseUrl.value = response.supabase?.url || "";
-    supabaseAnonKey.value = response.supabase?.anonKey || "";
-    loginSupabaseUrl.value = response.supabase?.url || "";
-    loginSupabaseAnonKey.value = response.supabase?.anonKey || "";
     showCapturedText.checked = response.showCapturedText !== false;
     applyCapturedTextVisibility(showCapturedText.checked);
     activeProfile = {
@@ -420,29 +392,6 @@ async function loadConfig() {
     renderActiveProfile();
     setNotificationsEnabled(enableNotifications.checked);
   }
-}
-
-async function saveConfig() {
-  const url = backendUrl.value.trim();
-  if (!url) {
-    setMessage("Ingresa la URL del backend.", "error");
-    return;
-  }
-
-  const response = await sendMessage({
-    type: "SAVE_CONFIG",
-    backendUrl: url,
-    supabase: {
-      url: supabaseUrl.value.trim(),
-      anonKey: supabaseAnonKey.value.trim()
-    }
-  });
-  if (!response?.ok) {
-    setMessage(response?.error || "No se pudo guardar la configuración.", "error");
-    return;
-  }
-
-  setMessage("Configuración guardada.", "ok");
 }
 
 async function saveUiConfig() {
@@ -965,9 +914,6 @@ function downloadPdf() {
 $("loginButton").addEventListener("click", () => {
   login().catch(() => setLoginMessage("No se pudo iniciar sesión."));
 });
-$("saveLoginSupabase").addEventListener("click", () => {
-  saveSupabaseConfigFromLogin().catch(() => setLoginMessage("No se pudo guardar Supabase."));
-});
 $("showRegister").addEventListener("click", showRegisterView);
 $("backToLogin").addEventListener("click", showLoginView);
 $("registerButton").addEventListener("click", () => {
@@ -983,7 +929,6 @@ registerConfirmPassword.addEventListener("keydown", (event) => {
     registerAccount().catch(() => setRegisterMessage("No se pudo crear la cuenta."));
   }
 });
-$("saveConfig").addEventListener("click", saveConfig);
 $("saveProfile").addEventListener("click", saveProfile);
 $("changePassword").addEventListener("click", changePassword);
 $("toggleConfig").addEventListener("click", () => {
@@ -1002,10 +947,5 @@ $("copyResult").addEventListener("click", copyResult);
 $("downloadWord").addEventListener("click", downloadWord);
 $("downloadPdf").addEventListener("click", downloadPdf);
 capturedText.addEventListener("input", updateCount);
-
-getSupabaseConfig().then((config) => {
-  loginSupabaseUrl.value = config.url || "";
-  loginSupabaseAnonKey.value = config.anonKey || "";
-}).catch(() => {});
 
 

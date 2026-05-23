@@ -66,15 +66,15 @@ Debe responder algo como:
 5. Abre una pagina de expediente electronico o una pagina con texto de prueba.
 6. Haz clic en la extension. Se abrira como barra lateral y quedara abierta.
 
-## D. Backend API En El Popup
+## D. Configuracion De Produccion
 
-Usa esta URL como `Backend API`:
+La extension usa por defecto el backend publicado en Vercel:
 
 ```text
-http://localhost:3001/api/draft
+https://expediente-ai-chrome-extension.vercel.app/api/draft
 ```
 
-Si cambias la URL, presiona `Guardar configuracion`.
+La configuracion publica de Supabase se obtiene automaticamente desde el backend mediante `/api/client-config`, usando las variables configuradas en Vercel.
 
 ## D.1 Supabase
 
@@ -82,16 +82,10 @@ La extension puede iniciar sesion y registrar usuarios con Supabase Auth.
 
 1. Crea el proyecto en Supabase.
 2. Ejecuta el SQL de la tabla `profiles` y sus policies.
-3. En Supabase copia:
-   - `Project URL`
-   - `anon public key`
-4. Abre la extension.
-5. En la pantalla de login abre `Configurar Supabase`.
-6. Pega `Supabase URL` y `Supabase anon key`.
-7. Presiona `Guardar Supabase`.
-8. Usa `Registrarse` para crear el usuario con nombre, matricula, correo y casillero.
+3. Configura `SUPABASE_URL` y `SUPABASE_ANON_KEY` en Vercel.
+4. Usa `Registrarse` en la extension para crear el usuario con nombre, matricula, correo y casillero.
 
-La `anon key` puede estar en la extension. La API key de OpenAI no debe ir nunca en la extension; debe quedar solo en el backend/Vercel.
+La `anon key` es publica, pero se administra desde Vercel para que el usuario final no tenga que pegar URLs ni claves en la extension. La API key de OpenAI no debe ir nunca en la extension; debe quedar solo en el backend/Vercel.
 
 ## D.2 Proteger El Backend Con Supabase
 

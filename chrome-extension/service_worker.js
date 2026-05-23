@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND_URL = "http://localhost:3001/api/draft";
+const DEFAULT_BACKEND_URL = "https://expediente-ai-chrome-extension.vercel.app/api/draft";
 const SERVICE_WORKER_PATH = new URL(import.meta.url).pathname;
 const CONTENT_SCRIPT_FILE = SERVICE_WORKER_PATH.includes("/chrome-extension/")
   ? "chrome-extension/contentScript.js"
@@ -10,15 +10,32 @@ function normalizeSupabaseUrl(url) {
 
 async function getSupabaseConfig() {
   const stored = await chrome.storage.sync.get(["supabaseUrl", "supabaseAnonKey"]);
-  return {
+  const storedConfig = {
     url: normalizeSupabaseUrl(stored.supabaseUrl),
     anonKey: String(stored.supabaseAnonKey || "").trim()
   };
+
+  if (storedConfig.url && storedConfig.anonKey) return storedConfig;
+
+  try {
+    const backendUrl = await getBackendUrl();
+    const response = await fetch(new URL("/api/client-config", backendUrl).toString(), {
+      cache: "no-store"
+    });
+    const data = await response.json().catch(() => ({}));
+
+    return {
+      url: normalizeSupabaseUrl(data.supabase?.url),
+      anonKey: String(data.supabase?.anonKey || "").trim()
+    };
+  } catch (_error) {
+    return storedConfig;
+  }
 }
 
 function assertSupabaseConfig(config) {
   if (!config.url || !config.anonKey) {
-    throw new Error("Configura Supabase URL y anon key.");
+    throw new Error("No se pudo cargar la configuracion de Supabase desde el backend.");
   }
 }
 
@@ -285,8 +302,7 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 async function getBackendUrl() {
-  const stored = await chrome.storage.sync.get(["backendUrl"]);
-  return stored.backendUrl || DEFAULT_BACKEND_URL;
+  return DEFAULT_BACKEND_URL;
 }
 
 async function getActiveTab() {
@@ -659,25 +675,6 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       return;
     }
 
-    if (request?.type === "SAVE_CONFIG") {
-      await chrome.storage.sync.set({
-        backendUrl: request.backendUrl,
-        supabaseUrl: normalizeSupabaseUrl(request.supabase?.url),
-        supabaseAnonKey: request.supabase?.anonKey || ""
-      });
-      sendResponse({ ok: true });
-      return;
-    }
-
-    if (request?.type === "SAVE_SUPABASE_CONFIG") {
-      await chrome.storage.sync.set({
-        supabaseUrl: normalizeSupabaseUrl(request.config?.url),
-        supabaseAnonKey: request.config?.anonKey || ""
-      });
-      sendResponse({ ok: true });
-      return;
-    }
-
     if (request?.type === "GET_SUPABASE_CONFIG") {
       const config = await getSupabaseConfig();
       sendResponse({ ok: true, config });
@@ -753,15 +750,9 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     }
 
     if (request?.type === "GET_CONFIG") {
-      const backendUrl = await getBackendUrl();
-      const stored = await chrome.storage.sync.get(["showCapturedText", "profile", "supabaseUrl", "supabaseAnonKey"]);
+      const stored = await chrome.storage.sync.get(["showCapturedText", "profile"]);
       sendResponse({
         ok: true,
-        backendUrl,
-        supabase: {
-          url: normalizeSupabaseUrl(stored.supabaseUrl),
-          anonKey: stored.supabaseAnonKey || ""
-        },
         showCapturedText: stored.showCapturedText !== false,
         profile: stored.profile || {
           lawyerPrefix: "Ab.",
