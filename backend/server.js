@@ -490,24 +490,40 @@ app.get("/admin/api/setup", (_req, res) => {
 });
 
 app.post("/admin/api/login", (req, res) => {
-  if (!ADMIN_PASSWORD) {
-    res.status(503).json({
-      error: "Falta configurar ADMIN_PASSWORD en Vercel Environment Variables para Production y hacer redeploy."
+  try {
+    if (!ADMIN_PASSWORD) {
+      res.status(503).json({
+        error: "Falta configurar ADMIN_PASSWORD en Vercel Environment Variables para Production y hacer redeploy."
+      });
+      return;
+    }
+
+    if (!req.is("application/json")) {
+      res.status(415).json({ error: "La solicitud debe enviarse como application/json." });
+      return;
+    }
+
+    if (!req.body || typeof req.body.password !== "string") {
+      res.status(400).json({ error: "Falta enviar la clave de administrador." });
+      return;
+    }
+
+    if (req.body.password !== ADMIN_PASSWORD) {
+      res.status(401).json({ error: "Clave de administrador incorrecta." });
+      return;
+    }
+
+    const token = signAdminToken({
+      role: "admin",
+      exp: Date.now() + 1000 * 60 * 60 * 8
     });
-    return;
+
+    res.json({ ok: true, token });
+  } catch (error) {
+    res.status(500).json({
+      error: `No se pudo iniciar sesion de administrador: ${error.message || "error interno"}.`
+    });
   }
-
-  if (req.body?.password !== ADMIN_PASSWORD) {
-    res.status(401).json({ error: "Clave de administrador incorrecta." });
-    return;
-  }
-
-  const token = signAdminToken({
-    role: "admin",
-    exp: Date.now() + 1000 * 60 * 60 * 8
-  });
-
-  res.json({ ok: true, token });
 });
 
 app.get("/admin/api/status", requireAdmin, (_req, res) => {
