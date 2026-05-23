@@ -610,7 +610,12 @@ async function generateDraft() {
     if (!permissionResponse?.ok) throw new Error(permissionResponse?.error);
 
     if (!permissionResponse.permissions?.canGenerate) {
-      throw new Error("Tu usuario aun no esta habilitado para generar escritos. Solicita activacion al administrador.");
+      const used = permissionResponse.permissions?.totalDrafts ?? 0;
+      const max = permissionResponse.permissions?.maxGenerations ?? 0;
+      const isEnabled = permissionResponse.permissions?.isEnabled;
+      throw new Error(isEnabled
+        ? `Alcanzaste el maximo de escritos generados permitido (${used}/${max}). Solicita ampliacion al administrador.`
+        : "Tu usuario aun no esta habilitado para generar escritos. Solicita activacion al administrador.");
     }
 
     setMessage("Generando borrador...");

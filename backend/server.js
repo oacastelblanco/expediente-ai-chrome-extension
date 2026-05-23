@@ -184,9 +184,18 @@ async function requireEnabledUser(req, res, next) {
   }
 
   try {
-    if (!(await getUserEnablement(req.user.id))) {
+    const access = await getUserGenerationAccess(req.user.id);
+
+    if (!access.isEnabled) {
       res.status(403).json({
         error: "Tu usuario aun no esta habilitado para generar escritos. Solicita activacion al administrador."
+      });
+      return;
+    }
+
+    if (!access.canGenerate) {
+      res.status(403).json({
+        error: `Alcanzaste el maximo de escritos generados permitido (${access.totalDrafts}/${access.maxGenerations}). Solicita ampliacion al administrador.`
       });
       return;
     }
@@ -199,12 +208,21 @@ async function requireEnabledUser(req, res, next) {
   }
 }
 
-async function getUserEnablement(userId) {
-  const rows = await supabaseAdminFetch(`/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=id,is_enabled`, {
+async function getUserGenerationAccess(userId) {
+  const rows = await supabaseAdminFetch(`/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=id,is_enabled,max_generations`, {
     method: "GET"
   });
   const profile = Array.isArray(rows) ? rows[0] : null;
-  return Boolean(profile?.is_enabled);
+  const usageStats = await getUsageStatsByUser();
+  const totalDrafts = usageStats.get(userId)?.totalDrafts || 0;
+  const maxGenerations = Number(profile?.max_generations || 0);
+
+  return {
+    isEnabled: Boolean(profile?.is_enabled),
+    maxGenerations,
+    totalDrafts,
+    canGenerate: Boolean(profile?.is_enabled) && maxGenerations > totalDrafts
+  };
 }
 
 async function logUsageEvent(req, draft) {
@@ -599,12 +617,15 @@ app.get("/api/client-config", (_req, res) => {
 
 app.get("/api/me/permissions", verifySupabaseUser, async (req, res) => {
   try {
-    const canGenerate = await getUserEnablement(req.user.id);
+    const access = await getUserGenerationAccess(req.user.id);
     res.json({
       ok: true,
       user: req.user,
       permissions: {
-        canGenerate
+        canGenerate: access.canGenerate,
+        isEnabled: access.isEnabled,
+        maxGenerations: access.maxGenerations,
+        totalDrafts: access.totalDrafts
       }
     });
   } catch (error) {
@@ -653,7 +674,7 @@ app.get("/admin/api/status", requireAdmin, (_req, res) => {
 
 app.get("/admin/api/users", requireAdmin, async (_req, res) => {
   try {
-    const users = await supabaseAdminFetch("/rest/v1/profiles?select=id,email,prefijo,nombre_completo,matricula_abogado,is_enabled,created_at&order=created_at.desc", {
+    const users = await supabaseAdminFetch("/rest/v1/profiles?select=id,email,prefijo,nombre_completo,matricula_abogado,is_enabled,max_generations,created_at&order=created_at.desc", {
       method: "GET"
     });
     const usageStats = await getUsageStatsByUser();
@@ -678,15 +699,33 @@ app.get("/admin/api/users", requireAdmin, async (_req, res) => {
 
 app.patch("/admin/api/users/:id", requireAdmin, async (req, res) => {
   try {
-    if (typeof req.body?.is_enabled !== "boolean") {
+    if (req.body?.is_enabled !== undefined && typeof req.body.is_enabled !== "boolean") {
       res.status(400).json({ error: "is_enabled debe ser booleano." });
       return;
     }
 
-    const rows = await supabaseAdminFetch(`/rest/v1/profiles?id=eq.${encodeURIComponent(req.params.id)}&select=id,email,prefijo,nombre_completo,matricula_abogado,is_enabled,created_at`, {
+    const updates = {};
+    if (typeof req.body?.is_enabled === "boolean") {
+      updates.is_enabled = req.body.is_enabled;
+    }
+    if (req.body?.max_generations !== undefined) {
+      const maxGenerations = Number(req.body.max_generations);
+      if (!Number.isInteger(maxGenerations) || maxGenerations < 0) {
+        res.status(400).json({ error: "max_generations debe ser un entero mayor o igual a 0." });
+        return;
+      }
+      updates.max_generations = maxGenerations;
+    }
+
+    if (!Object.keys(updates).length) {
+      res.status(400).json({ error: "No hay cambios para actualizar." });
+      return;
+    }
+
+    const rows = await supabaseAdminFetch(`/rest/v1/profiles?id=eq.${encodeURIComponent(req.params.id)}&select=id,email,prefijo,nombre_completo,matricula_abogado,is_enabled,max_generations,created_at`, {
       method: "PATCH",
       headers: { Prefer: "return=representation" },
-      body: JSON.stringify({ is_enabled: req.body.is_enabled })
+      body: JSON.stringify(updates)
     });
 
     res.json({ ok: true, user: Array.isArray(rows) ? rows[0] : null });

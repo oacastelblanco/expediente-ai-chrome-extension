@@ -188,6 +188,26 @@ dd {
   margin-top: 5px;
 }
 
+.user-limit {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(110px, 160px) minmax(80px, 110px) auto;
+  margin-top: 8px;
+}
+
+.user-limit label {
+  margin: 0;
+}
+
+.user-limit input {
+  padding: 8px;
+}
+
+.user-limit-save {
+  margin-top: 0;
+}
+
 .user-toggle {
   align-items: center;
   display: flex;
@@ -234,6 +254,11 @@ dd {
 
   .user-row {
     align-items: flex-start;
+    grid-template-columns: 1fr;
+  }
+
+  .user-limit {
+    align-items: stretch;
     grid-template-columns: 1fr;
   }
 }

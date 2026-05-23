@@ -103,10 +103,55 @@ function renderUsers(users = []) {
       .map(([type, count]) => `${type}: ${count}`)
       .join(" | ");
     usage.textContent = [
-      `Escritos generados: ${totalDrafts}`,
+      `Escritos generados: ${totalDrafts}/${Number(user.max_generations || 0)}`,
       `Ultimo uso: ${lastUsedAt}`,
       mainTypes ? `Tipos: ${mainTypes}` : ""
     ].filter(Boolean).join(" | ");
+
+    const limitEditor = document.createElement("div");
+    limitEditor.className = "user-limit";
+    const limitLabel = document.createElement("label");
+    limitLabel.textContent = "Maximo de escritos";
+    const limitInput = document.createElement("input");
+    limitInput.type = "number";
+    limitInput.min = "0";
+    limitInput.step = "1";
+    limitInput.value = String(Number(user.max_generations || 0));
+    const saveLimitButton = document.createElement("button");
+    saveLimitButton.type = "button";
+    saveLimitButton.className = "secondary user-limit-save";
+    saveLimitButton.textContent = "Guardar maximo";
+
+    saveLimitButton.addEventListener("click", async () => {
+      const maxGenerations = Number(limitInput.value || 0);
+      if (!Number.isInteger(maxGenerations) || maxGenerations < 0) {
+        setMessage(usersMessage, "El maximo debe ser un entero mayor o igual a 0.", "error");
+        return;
+      }
+
+      limitInput.disabled = true;
+      saveLimitButton.disabled = true;
+      try {
+        const data = await api(`/admin/api/users/${encodeURIComponent(user.id)}`, {
+          method: "PATCH",
+          body: JSON.stringify({ max_generations: maxGenerations })
+        });
+        user.max_generations = Number(data.user?.max_generations || 0);
+        usage.textContent = [
+          `Escritos generados: ${totalDrafts}/${user.max_generations}`,
+          `Ultimo uso: ${lastUsedAt}`,
+          mainTypes ? `Tipos: ${mainTypes}` : ""
+        ].filter(Boolean).join(" | ");
+        setMessage(usersMessage, "Maximo actualizado.", "ok");
+      } catch (error) {
+        setMessage(usersMessage, error.message, "error");
+      } finally {
+        limitInput.disabled = false;
+        saveLimitButton.disabled = false;
+      }
+    });
+
+    limitEditor.append(limitLabel, limitInput, saveLimitButton);
 
     const toggleLabel = document.createElement("label");
     toggleLabel.className = "user-toggle";
@@ -135,7 +180,7 @@ function renderUsers(users = []) {
       }
     });
 
-    info.append(name, meta, usage);
+    info.append(name, meta, usage, limitEditor);
     toggleLabel.append(toggle, text);
     row.append(info, toggleLabel);
     usersList.appendChild(row);
