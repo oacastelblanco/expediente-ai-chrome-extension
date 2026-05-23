@@ -77,6 +77,42 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
+app.post("/admin/api/login", (req, res) => {
+  try {
+    if (!ADMIN_PASSWORD) {
+      res.status(503).json({
+        error: "Falta configurar ADMIN_PASSWORD en Vercel Environment Variables para Production y hacer redeploy."
+      });
+      return;
+    }
+
+    const password = typeof req.headers["x-admin-password"] === "string"
+      ? req.headers["x-admin-password"]
+      : "";
+
+    if (!password) {
+      res.status(400).json({ error: "Falta enviar la clave de administrador." });
+      return;
+    }
+
+    if (password !== ADMIN_PASSWORD) {
+      res.status(401).json({ error: "Clave de administrador incorrecta." });
+      return;
+    }
+
+    const token = signAdminToken({
+      role: "admin",
+      exp: Date.now() + 1000 * 60 * 60 * 8
+    });
+
+    res.json({ ok: true, token });
+  } catch (error) {
+    res.status(500).json({
+      error: `No se pudo iniciar sesion de administrador: ${error.message || "error interno"}.`
+    });
+  }
+});
+
 app.use(express.json({ limit: "25mb" }));
 
 function isSupabaseConfigured() {
@@ -487,42 +523,6 @@ app.get("/admin/api/setup", (_req, res) => {
     authMode: adminConfig.authMode,
     openaiConfigured: Boolean(OPENAI_API_KEY && OPENAI_API_KEY !== "pega_aqui_tu_api_key")
   });
-});
-
-app.post("/admin/api/login", (req, res) => {
-  try {
-    if (!ADMIN_PASSWORD) {
-      res.status(503).json({
-        error: "Falta configurar ADMIN_PASSWORD en Vercel Environment Variables para Production y hacer redeploy."
-      });
-      return;
-    }
-
-    const password = typeof req.headers["x-admin-password"] === "string"
-      ? req.headers["x-admin-password"]
-      : req.body?.password;
-
-    if (typeof password !== "string") {
-      res.status(400).json({ error: "Falta enviar la clave de administrador." });
-      return;
-    }
-
-    if (password !== ADMIN_PASSWORD) {
-      res.status(401).json({ error: "Clave de administrador incorrecta." });
-      return;
-    }
-
-    const token = signAdminToken({
-      role: "admin",
-      exp: Date.now() + 1000 * 60 * 60 * 8
-    });
-
-    res.json({ ok: true, token });
-  } catch (error) {
-    res.status(500).json({
-      error: `No se pudo iniciar sesion de administrador: ${error.message || "error interno"}.`
-    });
-  }
 });
 
 app.get("/admin/api/status", requireAdmin, (_req, res) => {

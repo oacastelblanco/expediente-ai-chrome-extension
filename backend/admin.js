@@ -25,9 +25,13 @@ function setToken(token) {
 
 async function api(path, options = {}) {
   const headers = {
-    "Content-Type": "application/json",
     ...(options.headers || {})
   };
+
+  if (options.body) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
