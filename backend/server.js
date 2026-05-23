@@ -207,6 +207,65 @@ async function getUserEnablement(userId) {
   return Boolean(profile?.is_enabled);
 }
 
+async function logUsageEvent(req, draft) {
+  if (!req.user?.id || !isSupabaseAdminConfigured()) return;
+
+  const metadata = req.body?.page?.metadata || {};
+  const payload = {
+    user_id: req.user.id,
+    document_type: req.body?.documentType || "otro",
+    process_number: metadata.numeroProceso || null,
+    page_text_length: typeof req.body?.pageText === "string" ? req.body.pageText.length : 0,
+    draft_length: typeof draft === "string" ? draft.length : 0
+  };
+
+  try {
+    await supabaseAdminFetch("/rest/v1/usage_events", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify(payload)
+    });
+  } catch (error) {
+    console.warn("No se pudo registrar el uso.", error.message || error);
+  }
+}
+
+async function getUsageStatsByUser() {
+  try {
+    const events = await supabaseAdminFetch("/rest/v1/usage_events?select=user_id,document_type,page_text_length,draft_length,created_at&order=created_at.desc&limit=10000", {
+      method: "GET"
+    });
+    const stats = new Map();
+
+    for (const event of Array.isArray(events) ? events : []) {
+      const userId = event.user_id;
+      if (!userId) continue;
+
+      const current = stats.get(userId) || {
+        totalDrafts: 0,
+        totalPageTextLength: 0,
+        totalDraftLength: 0,
+        lastUsedAt: null,
+        documentTypes: {}
+      };
+
+      current.totalDrafts += 1;
+      current.totalPageTextLength += Number(event.page_text_length || 0);
+      current.totalDraftLength += Number(event.draft_length || 0);
+      current.lastUsedAt = current.lastUsedAt || event.created_at || null;
+
+      const documentType = event.document_type || "otro";
+      current.documentTypes[documentType] = (current.documentTypes[documentType] || 0) + 1;
+      stats.set(userId, current);
+    }
+
+    return stats;
+  } catch (error) {
+    console.warn("No se pudieron cargar metricas de uso.", error.message || error);
+    return new Map();
+  }
+}
+
 function signAdminToken(payload) {
   const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = crypto
@@ -597,8 +656,19 @@ app.get("/admin/api/users", requireAdmin, async (_req, res) => {
     const users = await supabaseAdminFetch("/rest/v1/profiles?select=id,email,prefijo,nombre_completo,matricula_abogado,is_enabled,created_at&order=created_at.desc", {
       method: "GET"
     });
+    const usageStats = await getUsageStatsByUser();
+    const usersWithUsage = (Array.isArray(users) ? users : []).map((user) => ({
+      ...user,
+      usage: usageStats.get(user.id) || {
+        totalDrafts: 0,
+        totalPageTextLength: 0,
+        totalDraftLength: 0,
+        lastUsedAt: null,
+        documentTypes: {}
+      }
+    }));
 
-    res.json({ ok: true, users });
+    res.json({ ok: true, users: usersWithUsage });
   } catch (error) {
     res.status(500).json({
       error: error.message || "No se pudieron cargar los usuarios."
@@ -738,6 +808,7 @@ async function handleDraft(req, res) {
     }
 
     const draft = extractDraftFromResponse(data);
+    await logUsageEvent(req, draft);
 
     res.json({
       ok: true,

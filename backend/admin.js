@@ -91,6 +91,23 @@ function renderUsers(users = []) {
       user.matricula_abogado ? `Matricula: ${user.matricula_abogado}` : ""
     ].filter(Boolean).join(" | ");
 
+    const usage = document.createElement("div");
+    usage.className = "user-usage";
+    const totalDrafts = Number(user.usage?.totalDrafts || 0);
+    const lastUsedAt = user.usage?.lastUsedAt
+      ? new Date(user.usage.lastUsedAt).toLocaleString("es-EC")
+      : "Sin uso registrado";
+    const mainTypes = Object.entries(user.usage?.documentTypes || {})
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([type, count]) => `${type}: ${count}`)
+      .join(" | ");
+    usage.textContent = [
+      `Escritos generados: ${totalDrafts}`,
+      `Ultimo uso: ${lastUsedAt}`,
+      mainTypes ? `Tipos: ${mainTypes}` : ""
+    ].filter(Boolean).join(" | ");
+
     const toggleLabel = document.createElement("label");
     toggleLabel.className = "user-toggle";
     const toggle = document.createElement("input");
@@ -118,7 +135,7 @@ function renderUsers(users = []) {
       }
     });
 
-    info.append(name, meta);
+    info.append(name, meta, usage);
     toggleLabel.append(toggle, text);
     row.append(info, toggleLabel);
     usersList.appendChild(row);

@@ -102,6 +102,8 @@ Con `AUTH_MODE=auto`, el backend exige sesion cuando `SUPABASE_URL` y `SUPABASE_
 
 `SUPABASE_SERVICE_ROLE_KEY` se usa solo en el backend para que el panel admin pueda habilitar o deshabilitar usuarios. No la pongas en la extension.
 
+El panel admin tambien muestra uso por usuario a partir de la tabla `usage_events`, donde el backend registra cada escrito generado exitosamente.
+
 Opciones de `AUTH_MODE`:
 
 - `auto`: exige sesion si Supabase esta configurado.

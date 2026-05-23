@@ -182,6 +182,12 @@ dd {
   margin-top: 3px;
 }
 
+.user-usage {
+  color: #344054;
+  font-size: 12px;
+  margin-top: 5px;
+}
+
 .user-toggle {
   align-items: center;
   display: flex;
