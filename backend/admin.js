@@ -65,7 +65,9 @@ async function login() {
   setMessage(loginMessage, "");
   const data = await api("/admin/api/login", {
     method: "POST",
-    body: JSON.stringify({ password: adminPassword.value })
+    headers: {
+      "x-admin-password": adminPassword.value
+    }
   });
   setToken(data.token);
   adminPassword.value = "";

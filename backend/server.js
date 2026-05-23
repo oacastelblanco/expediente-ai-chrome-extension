@@ -498,17 +498,16 @@ app.post("/admin/api/login", (req, res) => {
       return;
     }
 
-    if (!req.is("application/json")) {
-      res.status(415).json({ error: "La solicitud debe enviarse como application/json." });
-      return;
-    }
+    const password = typeof req.headers["x-admin-password"] === "string"
+      ? req.headers["x-admin-password"]
+      : req.body?.password;
 
-    if (!req.body || typeof req.body.password !== "string") {
+    if (typeof password !== "string") {
       res.status(400).json({ error: "Falta enviar la clave de administrador." });
       return;
     }
 
-    if (req.body.password !== ADMIN_PASSWORD) {
+    if (password !== ADMIN_PASSWORD) {
       res.status(401).json({ error: "Clave de administrador incorrecta." });
       return;
     }
