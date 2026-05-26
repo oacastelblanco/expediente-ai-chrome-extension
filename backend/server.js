@@ -17,7 +17,8 @@ const adminAssets = {
 };
 
 const publicPages = {
-  privacyPolicy: readFileSync(join(backendDir, "privacy-policy.html"), "utf8")
+  privacyPolicy: readFileSync(join(backendDir, "privacy-policy.html"), "utf8"),
+  resetPassword: readFileSync(join(backendDir, "reset-password.html"), "utf8")
 };
 
 const app = express();
@@ -628,6 +629,13 @@ app.get([
   "/api/politica-de-privacidad"
 ], (_req, res) => {
   res.type("html").send(publicPages.privacyPolicy);
+});
+
+app.get(["/reset-password", "/api/reset-password"], (_req, res) => {
+  const html = publicPages.resetPassword
+    .replaceAll("__SUPABASE_URL__", SUPABASE_URL)
+    .replaceAll("__SUPABASE_ANON_KEY__", SUPABASE_ANON_KEY);
+  res.type("html").send(html);
 });
 
 app.get("/api/me/permissions", verifySupabaseUser, async (req, res) => {

@@ -17,6 +17,10 @@
     {
       "src": "/(privacy-policy|politica-de-privacidad)(.*)",
       "dest": "/privacy-policy.html"
+    },
+    {
+      "src": "/reset-password(.*)",
+      "dest": "/api/[...path].js"
     }
   ]
 }
