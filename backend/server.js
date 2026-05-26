@@ -16,6 +16,10 @@ const adminAssets = {
   js: readFileSync(join(backendDir, "admin.js"), "utf8")
 };
 
+const publicPages = {
+  privacyPolicy: readFileSync(join(backendDir, "privacy-policy.html"), "utf8")
+};
+
 const app = express();
 
 const PORT = Number(process.env.PORT || 3001);
@@ -433,9 +437,11 @@ Reglas:
 **Proceso No.:** **[NUMERO DE PROCESO]**
 **[PREFIJO Y NOMBRE DEL ABOGADO]**, en calidad de abogado autorizado de **[PARTE REPRESENTADA]**, dentro del juicio **[PROCEDIMIENTO]** No. **[NUMERO DE PROCESO]**, ante usted comparezco y expongo lo siguiente:
 15. Si falta algun dato del encabezado, usa **[dato pendiente]**, pero no cambies la estructura del encabezado.
-16. Estos rotulos pueden usarse si corresponden al tipo de escrito y a la instruccion: **ANTECEDENTES**, **SOLICITUD EXPRESA**, **FIRMA**. Usa **NOTIFICACIONES** solo si las instrucciones de notificaciones lo activan.
-17. No agregues apartados vacios ni apartados cuyo contenido sea solo **[dato pendiente]**. Si no hay contenido real para un apartado opcional, omite ese apartado.
-18. No pongas texto de contenido en la misma linea de esos rotulos. Despues de cada rotulo, deja el contenido en parrafos separados.
+16. Respeta espacios y saltos de linea: no pegues palabras ni datos. Escribe "Proceso No.: 093..." y nunca "ProcesoNo.:093..."; escribe "Ab. Oscar Castelblanco" y nunca "Ab.OscarCastelblanco".
+17. En el parrafo introductorio que empieza con el nombre del abogado, no marques el parrafo completo en negrita. Deja ese parrafo en texto normal.
+18. Estos rotulos pueden usarse si corresponden al tipo de escrito y a la instruccion: **ANTECEDENTES**, **SOLICITUD EXPRESA**, **FIRMA**. Usa **NOTIFICACIONES** solo si las instrucciones de notificaciones lo activan.
+19. No agregues apartados vacios ni apartados cuyo contenido sea solo **[dato pendiente]**. Si no hay contenido real para un apartado opcional, omite ese apartado.
+20. No pongas texto de contenido en la misma linea de esos rotulos. Despues de cada rotulo, deja el contenido en parrafos separados.
 
 Tipo de escrito solicitado: ${documentType || "otro"}
 
@@ -613,6 +619,15 @@ app.get("/api/client-config", (_req, res) => {
       anonKey: SUPABASE_ANON_KEY
     }
   });
+});
+
+app.get([
+  "/privacy-policy",
+  "/politica-de-privacidad",
+  "/api/privacy-policy",
+  "/api/politica-de-privacidad"
+], (_req, res) => {
+  res.type("html").send(publicPages.privacyPolicy);
 });
 
 app.get("/api/me/permissions", verifySupabaseUser, async (req, res) => {

@@ -13,6 +13,10 @@
     {
       "src": "/admin(.*)",
       "dest": "/api/[...path].js"
+    },
+    {
+      "src": "/(privacy-policy|politica-de-privacidad)(.*)",
+      "dest": "/privacy-policy.html"
     }
   ]
 }
